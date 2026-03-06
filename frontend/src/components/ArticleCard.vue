@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { NCard, NTag, NSpace, NRate, NButton, NIcon } from 'naive-ui';
 import { OpenOutline, TimeOutline } from '@vicons/ionicons5';
 import type { Article } from '../types';
@@ -15,9 +15,7 @@ const categoryColors: Record<string, string> = {
   community: '#a371f7',
 };
 
-const formatDate = (date: string) => {
-  return dayjs(date).format('HH:mm');
-};
+const formatDate = (date: string) => dayjs(date).format('HH:mm');
 </script>
 
 <template>
@@ -31,7 +29,12 @@ const formatDate = (date: string) => {
           <n-rate readonly :default-value="article.importance" size="small" :color="'#f1e05a'" />
         </div>
         <div class="meta-row">
-          <n-tag :color="{ textColor: categoryColors[article.source_category], borderColor: categoryColors[article.source_category] }" size="small" round ghost>
+          <n-tag
+            :color="{ textColor: categoryColors[article.source_category], borderColor: categoryColors[article.source_category] }"
+            size="small"
+            round
+            ghost
+          >
             {{ article.source_category.toUpperCase() }}
           </n-tag>
           <span class="source-name">{{ article.source_name }}</span>
@@ -41,18 +44,16 @@ const formatDate = (date: string) => {
           </span>
         </div>
       </div>
-      
+
       <p class="summary">{{ article.summary_zh }}</p>
-      
+
       <div class="card-footer">
         <n-space size="small">
-          <n-tag v-for="tag in article.tags" :key="tag" size="small" :bordered="false" class="tag">
-            # {{ tag }}
-          </n-tag>
+          <n-tag v-for="tag in article.tags" :key="tag" size="small" :bordered="false" class="tag"> # {{ tag }} </n-tag>
         </n-space>
-        
+
         <n-button text tag="a" :href="article.url" target="_blank" class="read-more">
-          原文
+          查看原文
           <template #icon>
             <n-icon><OpenOutline /></n-icon>
           </template>
@@ -151,6 +152,7 @@ const formatDate = (date: string) => {
   .title-row {
     flex-direction: column;
   }
+
   .card-footer {
     flex-direction: column;
     align-items: flex-start;

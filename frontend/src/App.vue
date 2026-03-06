@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { darkTheme, NConfigProvider, NGlobalStyle, NLoadingBarProvider, NMessageProvider } from 'naive-ui';
 import type { GlobalThemeOverrides } from 'naive-ui';
 
@@ -23,7 +23,7 @@ const themeOverrides: GlobalThemeOverrides = {
   Button: {
     colorOpacityPressed: '0.1',
     colorOpacityHover: '0.05',
-  }
+  },
 };
 </script>
 
@@ -43,7 +43,7 @@ const themeOverrides: GlobalThemeOverrides = {
             <router-view />
           </main>
           <footer class="app-footer">
-            <p>&copy; 2026 AI Daily — 追踪 AI 的每一天</p>
+            <p>&copy; 2026 AI Daily | 每日 AI 信息摘要</p>
           </footer>
         </div>
       </n-message-provider>
@@ -121,7 +121,8 @@ h1 {
 <style>
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

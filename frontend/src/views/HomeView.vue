@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDigestStore } from '../stores/digest';
@@ -20,25 +20,20 @@ const goToDigest = (date: string) => {
 <template>
   <div class="home-view">
     <div class="view-header">
-      <h2>历史日报</h2>
-      <p>选择日期查看 AI 资讯摘要</p>
+      <h2>日报列表</h2>
+      <p>选择日期查看 AI Daily 内容</p>
     </div>
 
     <n-spin :show="store.loading">
       <div v-if="store.dateList.dates.length > 0" class="date-list">
         <n-list hoverable clickable bordered>
-          <n-list-item
-            v-for="date in store.dateList.dates"
-            :key="date"
-            @click="goToDigest(date)"
-          >
+          <n-list-item v-for="date in store.dateList.dates" :key="date" @click="goToDigest(date)">
             <template #prefix>
               <n-icon size="24" color="#8b949e">
                 <CalendarOutline />
               </n-icon>
             </template>
-            <n-thing :title="date" :description="date === store.dateList.latest ? '最新更新' : ''">
-            </n-thing>
+            <n-thing :title="date" :description="date === store.dateList.latest ? '最新' : ''" />
             <template #suffix>
               <n-icon size="20" color="#30363d">
                 <ChevronForward />
@@ -48,7 +43,7 @@ const goToDigest = (date: string) => {
         </n-list>
       </div>
 
-      <n-empty v-else-if="!store.loading" description="暂无日报数据" />
+      <n-empty v-else-if="!store.loading" description="暂无可用日报" />
     </n-spin>
   </div>
 </template>

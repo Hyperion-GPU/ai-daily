@@ -1,14 +1,28 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDigestStore } from '../stores/digest';
 import {
-  NSelect, NSlider,
-  NInput, NRadioGroup, NRadioButton, NStatistic,
-  NEmpty, NSpin, NButton, NIcon, NDivider
+  NSelect,
+  NSlider,
+  NInput,
+  NRadioGroup,
+  NRadioButton,
+  NStatistic,
+  NEmpty,
+  NSpin,
+  NButton,
+  NIcon,
+  NDivider,
 } from 'naive-ui';
 import type { SelectOption } from 'naive-ui';
-import { FilterOutline, SearchOutline, ArrowBackOutline, TrendingUpOutline, TimeOutline } from '@vicons/ionicons5';
+import {
+  FilterOutline,
+  SearchOutline,
+  ArrowBackOutline,
+  TrendingUpOutline,
+  TimeOutline,
+} from '@vicons/ionicons5';
 import ArticleCard from '../components/ArticleCard.vue';
 import type { QueryParams } from '../types';
 
@@ -19,20 +33,18 @@ const props = defineProps<{
 const store = useDigestStore();
 const router = useRouter();
 
-// Filters
 const searchKeyword = ref('');
 const selectedCategory = ref<string | null>(null);
 const selectedTags = ref<string[]>([]);
 const minImportance = ref(1);
 const sortBy = ref<'importance' | 'published'>('importance');
 
-// Category options
 const categories: SelectOption[] = [
   { label: '全部', value: '' },
-  { label: 'Arxiv 研究', value: 'arxiv' },
+  { label: 'Arxiv 论文', value: 'arxiv' },
   { label: '官方发布', value: 'official' },
-  { label: '业界新闻', value: 'news' },
-  { label: '社区动态', value: 'community' },
+  { label: '新闻媒体', value: 'news' },
+  { label: '社区内容', value: 'community' },
 ];
 
 const loadData = () => {
@@ -56,9 +68,9 @@ watch(() => props.date, loadData);
 
 const tagOptions = computed(() => {
   if (!store.currentDigest?.stats?.by_tag) return [];
-  return Object.keys(store.currentDigest.stats.by_tag).map(tag => ({
+  return Object.keys(store.currentDigest.stats.by_tag).map((tag) => ({
     label: tag,
-    value: tag
+    value: tag,
   }));
 });
 
@@ -66,7 +78,6 @@ const goBack = () => {
   router.push('/');
 };
 
-// --- Spring physics scroll-following sidebar ---
 const siderContentRef = ref<HTMLElement | null>(null);
 let currentY = 0;
 let velocityY = 0;
@@ -83,7 +94,6 @@ const clampTarget = () => {
   if (!el) return 0;
   const aside = el.parentElement;
   if (!aside) return 0;
-  // How far sidebar can travel inside the aside
   const maxTravel = aside.offsetHeight - el.offsetHeight;
   const scrollOffset = Math.max(0, window.scrollY - siderInitialTop + 24);
   return Math.min(scrollOffset, Math.max(0, maxTravel));
@@ -139,21 +149,22 @@ onBeforeUnmount(() => {
     <div class="header-nav">
       <n-button text @click="goBack" class="back-btn">
         <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
-        返回列表
+        返回日报列表
       </n-button>
       <div class="current-date">
-        <h2>AI Daily — {{ date }}</h2>
-        <span v-if="store.currentDigest" class="gen-time">生成于 {{ new Date(store.currentDigest.generated_at).toLocaleString() }}</span>
+        <h2>AI Daily - {{ date }}</h2>
+        <span v-if="store.currentDigest" class="gen-time">
+          生成时间：{{ new Date(store.currentDigest.generated_at).toLocaleString() }}
+        </span>
       </div>
     </div>
 
     <div class="main-layout">
-      <!-- Sidebar -->
       <aside class="filter-sider">
         <div ref="siderContentRef" class="sider-content">
           <div class="filter-section">
             <h3 class="filter-title"><n-icon><SearchOutline /></n-icon> 搜索</h3>
-            <n-input v-model:value="searchKeyword" placeholder="搜索标题或摘要..." clearable />
+            <n-input v-model:value="searchKeyword" placeholder="按标题或摘要搜索..." clearable />
           </div>
 
           <n-divider />
@@ -162,17 +173,17 @@ onBeforeUnmount(() => {
             <h3 class="filter-title"><n-icon><FilterOutline /></n-icon> 筛选</h3>
 
             <div class="filter-item">
-              <label>内容分类</label>
+              <label>来源分类</label>
               <n-select v-model:value="selectedCategory" :options="categories" placeholder="选择分类" />
             </div>
 
             <div class="filter-item">
-              <label>热门标签</label>
+              <label>标签</label>
               <n-select v-model:value="selectedTags" :options="tagOptions" multiple placeholder="选择标签" />
             </div>
 
             <div class="filter-item">
-              <label>最低重要性 ({{ minImportance }}+)</label>
+              <label>最低重要性（{{ minImportance }}+）</label>
               <n-slider v-model:value="minImportance" :min="1" :max="5" :step="1" />
             </div>
           </div>
@@ -183,23 +194,22 @@ onBeforeUnmount(() => {
             <h3 class="filter-title">排序方式</h3>
             <n-radio-group v-model:value="sortBy" size="small" class="sort-group">
               <n-radio-button value="importance">
-                <n-icon><TrendingUpOutline /></n-icon> 重要性
+                <n-icon><TrendingUpOutline /></n-icon> 按重要性
               </n-radio-button>
               <n-radio-button value="published">
-                <n-icon><TimeOutline /></n-icon> 时间
+                <n-icon><TimeOutline /></n-icon> 按时间
               </n-radio-button>
             </n-radio-group>
           </div>
 
           <div class="stats-card" v-if="store.currentDigest?.stats">
-            <n-statistic label="今日资讯" :value="store.currentDigest.stats.total">
+            <n-statistic label="当前结果数" :value="store.currentDigest.stats.total">
               <template #suffix>篇</template>
             </n-statistic>
           </div>
         </div>
       </aside>
 
-      <!-- Content -->
       <main class="content-area">
         <n-spin :show="store.loading">
           <div v-if="store.currentDigest?.articles.length" class="article-list">
@@ -209,7 +219,11 @@ onBeforeUnmount(() => {
               :article="article"
             />
           </div>
-          <n-empty v-else-if="!store.loading" description="没有找到符合条件的资讯" class="empty-state" />
+          <n-empty
+            v-else-if="!store.loading"
+            description="没有符合当前筛选条件的内容"
+            class="empty-state"
+          />
         </n-spin>
       </main>
     </div>
@@ -315,6 +329,7 @@ onBeforeUnmount(() => {
   .main-layout {
     flex-direction: column;
   }
+
   .filter-sider {
     width: 100%;
   }
