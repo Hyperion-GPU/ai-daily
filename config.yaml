@@ -1,0 +1,121 @@
+# AI Daily Configuration
+
+llm:
+  provider: "siliconflow"  # options: "siliconflow", "newapi"
+  siliconflow:
+    base_url: "https://api.siliconflow.cn/v1"
+    api_key_env: "SILICONFLOW_API_KEY"
+    model: "deepseek-ai/DeepSeek-V3.2"
+    temperature: 0.3
+    max_tokens: 1500
+  newapi:
+    base_url: "https://YOUR_NEWAPI_ENDPOINT/v1"
+    api_key_env: "NEWAPI_API_KEY"
+    model: "deepseek-chat"
+    temperature: 0.3
+    max_tokens: 1500
+
+pipeline:
+  max_articles_per_day: 30       # 最终输出的最多文章数
+  max_articles_to_stage2: 50     # Stage 1 初筛后，进入 Stage 2(精读摘要)的最大篇数
+  stage1_batch_size: 50          # Stage 1 中合并 Title 请求的 chunk size
+  stage2_concurrency: 5          # Stage 2 (精筛) 并发数 (Semaphore)
+  time_window_hours: 48          # 新闻鲜活度: 只看过去 48h 内发布的文章
+
+outputs:
+  output_dir: "output"
+  report_filename: "{date}.md"
+  log_filename: "{date}.log"
+
+feeds:
+  # === 研究/论文类 ===
+  - name: "Arxiv cs.AI"
+    url: "http://export.arxiv.org/rss/cs.AI"
+    category: "arxiv"
+    enabled: true
+    pre_filter: true
+    # 标题或摘要必须命中正则才进入后续管线（忽略大小写在代码中实现）
+    keywords: "transformer|agent|reasoning|multimodal|rlhf|diffusion|rag|llm|gpt|claude|prompt"
+  
+  - name: "Arxiv cs.CL"
+    url: "http://export.arxiv.org/rss/cs.CL"
+    category: "arxiv"
+    enabled: true
+    pre_filter: true
+    keywords: "transformer|agent|reasoning|multimodal|rlhf|diffusion|rag|llm|gpt|claude|prompt"
+
+  - name: "Arxiv cs.CV"
+    url: "http://export.arxiv.org/rss/cs.CV"
+    category: "arxiv"
+    enabled: true
+    pre_filter: true
+    keywords: "transformer|agent|reasoning|multimodal|rlhf|diffusion|rag|llm|gpt|claude|prompt"
+
+  - name: "Arxiv cs.LG"
+    url: "http://export.arxiv.org/rss/cs.LG"
+    category: "arxiv"
+    enabled: true
+    pre_filter: true
+    keywords: "transformer|agent|reasoning|multimodal|rlhf|diffusion|rag|llm|gpt|claude|prompt"
+
+  # === 新闻/社区类 ===
+  - name: "Hacker News (AI)"
+    url: "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+machine+learning&points=50"
+    category: "news"
+    enabled: true
+    pre_filter: false
+  
+  - name: "The Verge AI"
+    url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    category: "news"
+    enabled: true
+    pre_filter: false
+
+  - name: "TechCrunch AI"
+    url: "https://techcrunch.com/category/artificial-intelligence/feed/"
+    category: "news"
+    enabled: true
+    pre_filter: false
+
+  - name: "Ars Technica AI"
+    url: "https://feeds.arstechnica.com/arstechnica/technology-lab"
+    category: "news"
+    enabled: true
+    pre_filter: false
+
+  - name: "MIT Tech Review"
+    url: "https://www.technologyreview.com/feed/"
+    category: "news"
+    enabled: true
+    pre_filter: false
+
+  # === 官方博客类 ===
+  - name: "OpenAI Blog"
+    url: "https://openai.com/blog/rss.xml"
+    category: "official"
+    enabled: true
+    pre_filter: false
+
+  - name: "Google AI Blog"
+    url: "https://blog.google/technology/ai/rss/"
+    category: "official"
+    enabled: true
+    pre_filter: false
+
+  - name: "Anthropic"
+    url: "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic.xml"
+    category: "official"
+    enabled: true
+    pre_filter: false
+
+  - name: "Meta AI"
+    url: "https://ai.meta.com/blog/rss.xml"
+    category: "official"
+    enabled: true
+    pre_filter: false
+    
+  - name: "HuggingFace Blog"
+    url: "https://huggingface.co/blog/feed.xml"
+    category: "community"
+    enabled: true
+    pre_filter: false

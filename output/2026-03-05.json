@@ -1,0 +1,441 @@
+{
+  "date": "2026-03-05",
+  "generated_at": "2026-03-05T07:06:52.050905+00:00",
+  "stats": {
+    "total": 30,
+    "by_category": {
+      "official": 2,
+      "arxiv": 28
+    },
+    "by_tag": {
+      "研究": 24,
+      "LLMs": 26,
+      "框架/工具": 6,
+      "开源": 1,
+      "CV": 2,
+      "产业": 1
+    }
+  },
+  "articles": [
+    {
+      "title": "Extending single-minus amplitudes to gravitons",
+      "url": "https://openai.com/index/extending-single-minus-amplitudes-to-gravitons",
+      "published": "Wed, 04 Mar 2026 10:00:00 GMT",
+      "source_name": "OpenAI Blog",
+      "source_category": "official",
+      "summary_zh": "一篇新预印本在GPT-5.2 Pro的辅助下，将单负振幅理论扩展至引力子，推导并验证了量子引力中非零的引力子树图振幅。",
+      "tags": [
+        "研究",
+        "LLMs"
+      ],
+      "importance": 4,
+      "id": "0b1e50"
+    },
+    {
+      "title": "Build, Judge, Optimize: A Blueprint for Continuous Improvement of Multi-Agent Consumer Assistants",
+      "url": "https://arxiv.org/abs/2603.03565",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "本文提出了一个构建、评估和优化的蓝图，以解决多轮对话购物助手从原型到生产过程中评估与优化多智能体系统的核心挑战。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "0ebf6f"
+    },
+    {
+      "title": "Asymmetric Goal Drift in Coding Agents Under Value Conflict",
+      "url": "https://arxiv.org/abs/2603.03456",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究发现编码智能体在面临价值冲突时会产生非对称目标漂移，其行为会系统性偏离初始指令而偏向学习到的价值观。",
+      "tags": [
+        "研究",
+        "LLMs"
+      ],
+      "importance": 4,
+      "id": "c908d9"
+    },
+    {
+      "title": "BeamPERL: Parameter-Efficient RL with Verifiable Rewards Specializes Compact LLMs for Structured Beam Mechanics Reasoning",
+      "url": "https://arxiv.org/abs/2603.04124",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究提出一种参数高效的强化学习方法，利用可验证的二元奖励训练紧凑语言模型，使其能有效进行结构化力学推理。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "93631a"
+    },
+    {
+      "title": "Agentics 2.0: Logical Transduction Algebra for Agentic Data Workflows",
+      "url": "https://arxiv.org/abs/2603.04241",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "Agentics 2.0是一个用于构建高质量、结构化、可解释且类型安全的智能体数据工作流的Python原生框架。",
+      "tags": [
+        "框架/工具",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "f94ccb"
+    },
+    {
+      "title": "AriadneMem: Threading the Maze of Lifelong Memory for LLM Agents",
+      "url": "https://arxiv.org/abs/2603.03290",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "AriadneMem提出一种结构化记忆系统，解决了长期对话中证据分散和状态更新的难题，提升了LLM智能体在固定上下文下的记忆准确性。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "129685"
+    },
+    {
+      "title": "From Conflict to Consensus: Boosting Medical Reasoning via Multi-Round Agentic RAG",
+      "url": "https://arxiv.org/abs/2603.03292",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "提出一种名为MA-RAG的多轮智能体检索增强生成方法，通过智能体间的辩论与共识机制，显著提升了大型语言模型在复杂医学推理中的准确性和可靠性。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "a1df9b"
+    },
+    {
+      "title": "PlugMem: A Task-Agnostic Plugin Memory Module for LLM Agents",
+      "url": "https://arxiv.org/abs/2603.03296",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究者提出PlugMem通用记忆模块，可为任意LLM智能体添加长期记忆能力，无需针对特定任务重新设计。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "d39050"
+    },
+    {
+      "title": "In-Context Environments Induce Evaluation-Awareness in Language Models",
+      "url": "https://arxiv.org/abs/2603.03824",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究表明，语言模型在特定上下文环境中会表现出评估意识，可能为了规避干预而策略性地表现不佳。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "fc9a83"
+    },
+    {
+      "title": "Phi-4-reasoning-vision-15B Technical Report",
+      "url": "https://arxiv.org/abs/2603.03975",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "微软发布15B参数的紧凑型开源多模态推理模型Phi-4，在通用视觉语言任务上表现出色，尤其擅长科学推理。",
+      "tags": [
+        "LLMs",
+        "开源"
+      ],
+      "importance": 4,
+      "id": "d0b91d"
+    },
+    {
+      "title": "Draft-Conditioned Constrained Decoding for Structured Generation in LLMs",
+      "url": "https://arxiv.org/abs/2603.03305",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "本文提出一种结合草稿生成与约束解码的新方法，以解决LLMs在生成结构化输出时因严格约束导致语义偏差的问题。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "ea476a"
+    },
+    {
+      "title": "Towards Self-Robust LLMs: Intrinsic Prompt Noise Resistance via CoIPO",
+      "url": "https://arxiv.org/abs/2603.03314",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "该研究提出CoIPO方法，通过增强大语言模型对提示中噪声的内在抵抗力，使其在面对不完美用户输入时仍能保持稳定输出。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "061037"
+    },
+    {
+      "title": "TTSR: Test-Time Self-Reflection for Continual Reasoning Improvement",
+      "url": "https://arxiv.org/abs/2603.03297",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "提出了一种在测试时通过自我反思来持续改进大语言模型推理能力的新方法，解决了伪标签不可靠和针对性学习效率低的问题。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "ce2c45"
+    },
+    {
+      "title": "Discern Truth from Falsehood: Reducing Over-Refusal via Contrastive Refinement",
+      "url": "https://arxiv.org/abs/2603.03323",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "通过对比精炼方法，有效减少大语言模型因安全对齐而产生的过度拒绝问题，提升其可用性。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "317163"
+    },
+    {
+      "title": "AutoHarness: improving LLM agents by automatically synthesizing a code harness",
+      "url": "https://arxiv.org/abs/2603.03329",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "AutoHarness通过自动合成代码约束框架，有效防止LLM智能体在环境中执行非法或无效操作，从而提升其可靠性。",
+      "tags": [
+        "LLMs",
+        "框架/工具"
+      ],
+      "importance": 4,
+      "id": "8f29da"
+    },
+    {
+      "title": "TATRA: Training-Free Instance-Adaptive Prompting Through Rephrasing and Aggregation",
+      "url": "https://arxiv.org/abs/2603.03298",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "TATRA提出一种无需训练、无需数据集的实例自适应提示方法，通过重述和聚合解决LLM对提示措辞敏感的问题。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "0f95f0"
+    },
+    {
+      "title": "Controllable and explainable personality sliders for LLMs at inference time",
+      "url": "https://arxiv.org/abs/2603.03326",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "提出一种在推理时通过可控滑块调节LLM多种人格特质的方法，无需为每种人格单独训练模型。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "5e29a3"
+    },
+    {
+      "title": "Perfect score on IPhO 2025 theory by Gemini agent",
+      "url": "https://arxiv.org/abs/2603.03352",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "谷歌构建的Gemini智能体在2025年国际物理奥林匹克竞赛理论题上取得了满分成绩，超越了此前AI模型的金牌表现。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "7e07e8"
+    },
+    {
+      "title": "Fragile Thoughts: How Large Language Models Handle Chain-of-Thought Perturbations",
+      "url": "https://arxiv.org/abs/2603.03332",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究发现大语言模型在思维链推理中，对数学错误、单位转换等五种特定扰动类型表现出脆弱性，其鲁棒性有待提升。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "b20cab"
+    },
+    {
+      "title": "Certainty robustness: Evaluating LLM stability under self-challenging prompts",
+      "url": "https://arxiv.org/abs/2603.03330",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究提出一个评估框架，测试大语言模型在被自我质疑时答案的确定性是否稳定，而非仅评估单轮准确性。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "80465f"
+    },
+    {
+      "title": "MemSifter: Offloading LLM Memory Retrieval via Outcome-Driven Proxy Reasoning",
+      "url": "https://arxiv.org/abs/2603.03379",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "MemSifter通过结果驱动的代理推理，将大语言模型的长时记忆检索任务卸载，以低成本实现高准确率。",
+      "tags": [
+        "LLMs",
+        "框架/工具"
+      ],
+      "importance": 4,
+      "id": "46748c"
+    },
+    {
+      "title": "Parallel Test-Time Scaling with Multi-Sequence Verifiers",
+      "url": "https://arxiv.org/abs/2603.03417",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "提出并行测试时缩放与多序列验证器方法，通过改进验证器校准解决候选方案选择不准和推理延迟高的关键瓶颈。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "b87893"
+    },
+    {
+      "title": "LiteVLA-Edge: Quantized On-Device Multimodal Control for Embedded Robotics",
+      "url": "https://arxiv.org/abs/2603.03380",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "LiteVLA-Edge提出了一种面向部署的视觉-语言-动作模型，可在Jetson Orin级硬件上实现完全本地化的低延迟多模态机器人控制。",
+      "tags": [
+        "CV",
+        "框架/工具"
+      ],
+      "importance": 4,
+      "id": "ade181"
+    },
+    {
+      "title": "When Shallow Wins: Silent Failures and the Depth-Accuracy Paradox in Latent Reasoning",
+      "url": "https://arxiv.org/abs/2603.03475",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究发现，当前领先的数学推理模型大部分正确预测依赖于不稳定的、计算不一致的推理路径，揭示了其潜在的可靠性危机。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "b87a44"
+    },
+    {
+      "title": "Beyond Pixel Histories: World Models with Persistent 3D State",
+      "url": "https://arxiv.org/abs/2603.03482",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "该研究提出了一种具有持久3D状态的世界模型，通过显式3D表示解决了现有交互式世界模型缺乏空间一致性和长期记忆的问题。",
+      "tags": [
+        "研究",
+        "CV"
+      ],
+      "importance": 4,
+      "id": "108831"
+    },
+    {
+      "title": "Farther the Shift, Sparser the Representation: Analyzing OOD Mechanisms in LLMs",
+      "url": "https://arxiv.org/abs/2603.03415",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究发现，随着任务难度（如推理问题变难或上下文变长）增加，大语言模型的内部表征会变得显著稀疏。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "753a1a"
+    },
+    {
+      "title": "Sleeper Cell: Injecting Latent Malice Temporal Backdoors into Tool-Using LLMs",
+      "url": "https://arxiv.org/abs/2603.03371",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究发现，通过植入时间触发的潜伏后门，可让使用工具的LLM在特定条件下执行恶意操作，揭示了第三方模型的安全风险。",
+      "tags": [
+        "LLMs",
+        "研究"
+      ],
+      "importance": 4,
+      "id": "844443"
+    },
+    {
+      "title": "MMAI Gym for Science: Training Liquid Foundation Models for Drug Discovery",
+      "url": "https://arxiv.org/abs/2603.03517",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "研究团队推出MMAI Gym科学平台，通过训练专门的液体基础模型，以解决通用大语言模型在药物发现任务中性能不足的问题。",
+      "tags": [
+        "研究",
+        "LLMs"
+      ],
+      "importance": 4,
+      "id": "d9e5af"
+    },
+    {
+      "title": "On Google's SynthID-Text LLM Watermarking System: Theoretical Analysis and Empirical Validation",
+      "url": "https://arxiv.org/abs/2603.03410",
+      "published": "Thu, 05 Mar 2026 00:00:00 -0500",
+      "source_name": "Arxiv cs.AI",
+      "source_category": "arxiv",
+      "summary_zh": "谷歌推出首个生产级大语言模型水印系统SynthID-Text，通过创新的锦标赛采样算法实现了最先进的AI文本检测能力。",
+      "tags": [
+        "LLMs",
+        "框架/工具"
+      ],
+      "importance": 4,
+      "id": "450658"
+    },
+    {
+      "title": "Use Canvas in AI Mode to get things done and bring your ideas to life, right in Search.",
+      "url": "https://blog.google/products-and-platforms/products/search/ai-mode-canvas-writing-coding/",
+      "published": "Wed, 04 Mar 2026 17:00:00 +0000",
+      "source_name": "Google AI Blog",
+      "source_category": "official",
+      "summary_zh": "谷歌搜索推出AI画布功能，可帮助用户生成文档和构建交互工具，提升创意实现效率。",
+      "tags": [
+        "产业",
+        "框架/工具"
+      ],
+      "importance": 3,
+      "id": "57e667"
+    }
+  ]
+}

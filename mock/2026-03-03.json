@@ -1,0 +1,121 @@
+{
+  "date": "2026-03-03",
+  "generated_at": "2026-03-03T22:14:00+08:00",
+  "stats": {
+    "total": 10,
+    "by_category": {"arxiv": 4, "news": 3, "official": 2, "community": 1},
+    "by_tag": {"LLMs": 5, "研究": 4, "开源": 3, "产业": 2, "CV": 2, "框架/工具": 1, "其他": 1}
+  },
+  "articles": [
+    {
+      "id": "a1b2c3",
+      "title": "GPT-5 Technical Report: Scaling Reasoning to New Heights",
+      "url": "https://openai.com/research/gpt-5-technical-report",
+      "published": "2026-03-03T16:00:00Z",
+      "source_name": "OpenAI Blog",
+      "source_category": "official",
+      "summary_zh": "OpenAI发布GPT-5技术报告，在数学推理和代码生成基准上大幅超越前代，引入全新的混合推理架构。",
+      "tags": ["LLMs", "研究"],
+      "importance": 5
+    },
+    {
+      "id": "d4e5f6",
+      "title": "Llama 4 Released: Open-Source Model Matches GPT-4o Performance",
+      "url": "https://ai.meta.com/blog/llama-4-release",
+      "published": "2026-03-03T14:30:00Z",
+      "source_name": "Meta AI",
+      "source_category": "official",
+      "summary_zh": "Meta发布Llama 4系列开源模型，405B版本在多项基准上追平GPT-4o，完全开放权重下载。",
+      "tags": ["LLMs", "开源"],
+      "importance": 5
+    },
+    {
+      "id": "g7h8i9",
+      "title": "Attention Is All You Need... Again: Linear Attention Breaks the Quadratic Barrier",
+      "url": "https://arxiv.org/abs/2603.01234",
+      "published": "2026-03-03T08:00:00Z",
+      "source_name": "Arxiv cs.CL",
+      "source_category": "arxiv",
+      "summary_zh": "Google DeepMind提出线性注意力新架构，在保持Transformer表达能力的同时将复杂度降至O(n)，长序列推理速度提升8倍。",
+      "tags": ["LLMs", "研究"],
+      "importance": 5
+    },
+    {
+      "id": "j1k2l3",
+      "title": "Microsoft Copilot Workspace Now Handles Full Repo Refactoring",
+      "url": "https://www.theverge.com/2026/3/3/copilot-workspace-refactoring",
+      "published": "2026-03-03T12:00:00Z",
+      "source_name": "The Verge AI",
+      "source_category": "news",
+      "summary_zh": "微软升级Copilot Workspace，支持跨文件自动重构整个代码仓库，内测显示可减少60%的重构工作量。",
+      "tags": ["产业", "LLMs"],
+      "importance": 4
+    },
+    {
+      "id": "m4n5o6",
+      "title": "DiffusionNet-3D: Generating Photorealistic 3D Scenes from Text",
+      "url": "https://arxiv.org/abs/2603.02345",
+      "published": "2026-03-03T09:15:00Z",
+      "source_name": "Arxiv cs.CV",
+      "source_category": "arxiv",
+      "summary_zh": "斯坦福团队提出DiffusionNet-3D，首次实现从文本描述直接生成高保真3D场景，渲染质量超越NeRF方法。",
+      "tags": ["CV", "研究"],
+      "importance": 4
+    },
+    {
+      "id": "p7q8r9",
+      "title": "Anthropic Introduces Constitutional AI v2 with Self-Correction Loops",
+      "url": "https://www.anthropic.com/research/constitutional-ai-v2",
+      "published": "2026-03-03T11:00:00Z",
+      "source_name": "Anthropic",
+      "source_category": "news",
+      "summary_zh": "Anthropic发布Constitutional AI第二代，引入自我纠错循环机制，模型对齐效果显著提升并降低了人类反馈依赖。",
+      "tags": ["LLMs", "研究"],
+      "importance": 4
+    },
+    {
+      "id": "s1t2u3",
+      "title": "vLLM 0.8: 2x Throughput with Disaggregated Prefill",
+      "url": "https://blog.vllm.ai/2026/03/03/vllm-08.html",
+      "published": "2026-03-03T07:30:00Z",
+      "source_name": "HuggingFace Blog",
+      "source_category": "community",
+      "summary_zh": "vLLM发布0.8版本，通过分离预填充和解码阶段实现吞吐量翻倍，新增对Llama 4和Mixtral的原生支持。",
+      "tags": ["框架/工具", "开源"],
+      "importance": 3
+    },
+    {
+      "id": "v4w5x6",
+      "title": "EU AI Act Enforcement Begins: First Fines Issued to Tech Companies",
+      "url": "https://techcrunch.com/2026/03/03/eu-ai-act-first-fines",
+      "published": "2026-03-03T10:45:00Z",
+      "source_name": "TechCrunch AI",
+      "source_category": "news",
+      "summary_zh": "欧盟AI法案正式执法，首批罚款针对未进行风险评估的AI系统提供商，涉及三家大型科技公司。",
+      "tags": ["产业", "其他"],
+      "importance": 3
+    },
+    {
+      "id": "y7z8a1",
+      "title": "Sparse Mixture of Experts Achieves State-of-the-Art on ImageNet with 10x Fewer FLOPs",
+      "url": "https://arxiv.org/abs/2603.03456",
+      "published": "2026-03-03T08:30:00Z",
+      "source_name": "Arxiv cs.CV",
+      "source_category": "arxiv",
+      "summary_zh": "清华团队提出稀疏MoE视觉模型，在ImageNet上达到SOTA同时计算量仅为Dense模型的十分之一。",
+      "tags": ["CV", "研究"],
+      "importance": 3
+    },
+    {
+      "id": "b2c3d4",
+      "title": "Scaling RLHF to 1M Preference Pairs: Lessons from Training a 70B Model",
+      "url": "https://arxiv.org/abs/2603.04567",
+      "published": "2026-03-03T09:00:00Z",
+      "source_name": "Arxiv cs.LG",
+      "source_category": "arxiv",
+      "summary_zh": "Allen AI分享将RLHF扩展到百万级偏好数据的经验，揭示大规模对齐训练中的数据质量瓶颈和解决方案。",
+      "tags": ["LLMs", "开源"],
+      "importance": 2
+    }
+  ]
+}
