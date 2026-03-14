@@ -22,7 +22,7 @@ def test_get_digest_search_uses_casefold(monkeypatch):
 
     monkeypatch.setattr(api, "load_digest", lambda date: payload)
 
-    result = api.get_digest("2026-03-14", q="strasse")
+    result = api.get_digest("2026-03-14", tags=[], min_importance=1, sort="importance", q="strasse")
 
     assert result["stats"]["total"] == 1
 
@@ -59,6 +59,6 @@ def test_get_digest_sorts_published_across_timezones(monkeypatch):
 
     monkeypatch.setattr(api, "load_digest", lambda date: payload)
 
-    result = api.get_digest("2026-03-14", sort="published")
+    result = api.get_digest("2026-03-14", tags=[], min_importance=1, sort="published")
 
     assert [article["id"] for article in result["articles"]] == ["newer", "older"]
