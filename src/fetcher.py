@@ -1,16 +1,24 @@
 import asyncio
-import feedparser
-import httpx
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import feedparser
+import httpx
 from dateutil import parser as date_parser
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Set
+
+try:
+    import trafilatura
+except ImportError:  # pragma: no cover
+    trafilatura = None
 
 from src.utils import clean_html_tags, truncate_text
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 @dataclass
 class RawArticle:
@@ -23,143 +31,248 @@ class RawArticle:
     content: str
     processed: bool = False
 
+
 class FeedFetcher:
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
         self.logger = logger
-        self.state_file = Path("data") / "state.json"
+        self.state_file = PROJECT_ROOT / "data" / "state.json"
         self.state_file.parent.mkdir(exist_ok=True)
-        self.seen_urls: Set[str] = set()
-        self.load_state()
-        
+
         pipeline_cfg = config.get("pipeline", {})
         self.time_window = pipeline_cfg.get("time_window_hours", 48)
+        self.seen_url_retention_days = pipeline_cfg.get("seen_url_retention_days", 7)
+        self.fetch_full_text_enabled = pipeline_cfg.get("fetch_full_text", True)
+        self.full_text_max_chars = pipeline_cfg.get("full_text_max_chars", 2000)
+        self.full_text_concurrency = pipeline_cfg.get("full_text_concurrency", 5)
+        self.seen_urls: dict[str, str] = {}
+        self._full_text_warning_logged = False
+        self.load_state()
+
+    def _seen_urls_cutoff(self) -> datetime:
+        return datetime.now(timezone.utc) - timedelta(days=self.seen_url_retention_days)
+
+    def _prune_seen_urls(self, seen_urls: dict[str, str]) -> dict[str, str]:
+        cutoff = self._seen_urls_cutoff()
+        pruned: dict[str, str] = {}
+
+        for url, timestamp in seen_urls.items():
+            if not isinstance(url, str) or not isinstance(timestamp, str):
+                continue
+
+            try:
+                seen_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+
+            if seen_at.tzinfo is None:
+                seen_at = seen_at.replace(tzinfo=timezone.utc)
+            else:
+                seen_at = seen_at.astimezone(timezone.utc)
+
+            if seen_at > cutoff:
+                pruned[url] = seen_at.isoformat()
+
+        return pruned
 
     def load_state(self):
-        """加载已处理的 URL，防止重复抓取和调用大模型"""
-        if self.state_file.exists():
-            try:
-                with open(self.state_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.seen_urls = set(data.get("seen_urls", []))
-            except Exception as e:
-                self.logger.warning(f"Failed to load state.json: {e}")
+        if not self.state_file.exists():
+            return
+
+        try:
+            with open(self.state_file, "r", encoding="utf-8") as file:
+                data = json.load(file)
+        except Exception as exc:
+            self.logger.warning(f"Failed to load state.json: {exc}")
+            return
+
+        raw_seen_urls = data.get("seen_urls", {})
+        if isinstance(raw_seen_urls, dict):
+            self.seen_urls = self._prune_seen_urls(raw_seen_urls)
+            return
+
+        if isinstance(raw_seen_urls, list):
+            migrated_at = datetime.now(timezone.utc).isoformat()
+            self.seen_urls = {
+                url: migrated_at for url in raw_seen_urls if isinstance(url, str) and url
+            }
+            self.logger.info("Migrated legacy seen_urls list to timestamp map.")
+            return
+
+        self.logger.warning("Unexpected seen_urls format in state.json, ignoring stored state.")
+        self.seen_urls = {}
 
     def save_state(self):
-        """持久化保存已处理的 URL"""
         try:
-            with open(self.state_file, 'w', encoding='utf-8') as f:
-                json.dump({"seen_urls": list(self.seen_urls)}, f, ensure_ascii=False, indent=2)
-            self.logger.info(f"💾 Saved {len(self.seen_urls)} URLs to state.json.")
-        except Exception as e:
-            self.logger.error(f"Failed to save state.json: {e}")
+            self.seen_urls = self._prune_seen_urls(self.seen_urls)
+            with open(self.state_file, "w", encoding="utf-8") as file:
+                json.dump({"seen_urls": self.seen_urls}, file, ensure_ascii=False, indent=2)
+            self.logger.info(f"Saved {len(self.seen_urls)} URLs to state.json.")
+        except Exception as exc:
+            self.logger.error(f"Failed to save state.json: {exc}")
 
     def is_within_time_window(self, date_str: str) -> bool:
-        """检查文章发布时间是否在有效窗口内（防挖坟）"""
         if not date_str:
-            return True # 容错
-            
+            return True
+
         try:
-            pub_date = date_parser.parse(date_str)
-            # 统一转为 UTC 时间进行比较
-            if pub_date.tzinfo is None:
-                pub_date = pub_date.replace(tzinfo=timezone.utc)
-            else:
-                pub_date = pub_date.astimezone(timezone.utc)
-            
-            now_utc = datetime.now(timezone.utc)
-            diff_hours = (now_utc - pub_date).total_seconds() / 3600
-            return diff_hours <= self.time_window
-            
-        except Exception as e:
-            self.logger.debug(f"Failed to parse article date: {date_str}, Error: {e}")
-            return True # parse 失败放行
+            published_at = date_parser.parse(date_str)
+        except Exception as exc:
+            self.logger.warning(f"Failed to parse article date '{date_str}': {exc}")
+            return False
+
+        if published_at.tzinfo is None:
+            published_at = published_at.replace(tzinfo=timezone.utc)
+        else:
+            published_at = published_at.astimezone(timezone.utc)
+
+        diff_hours = (datetime.now(timezone.utc) - published_at).total_seconds() / 3600
+        return diff_hours <= self.time_window
 
     def apply_arxiv_prefilter(self, feed_cfg: dict, title: str, summary: str) -> bool:
-        """如果配置了关键词预过滤，正则匹配通过才放行"""
         if not feed_cfg.get("pre_filter", False):
             return True
-            
+
         keywords = feed_cfg.get("keywords", "")
         if not keywords:
             return True
-            
+
         pattern = re.compile(keywords, re.IGNORECASE)
         combined_text = f"{title} {summary}"
         return bool(pattern.search(combined_text))
 
-    async def fetch_feed(self, client: httpx.AsyncClient, feed_cfg: dict, new_urls_batch: Set) -> List[RawArticle]:
-        """抓取单个 RSS 源"""
+    async def fetch_full_text(self, client: httpx.AsyncClient, url: str) -> str | None:
+        if not self.fetch_full_text_enabled or not url:
+            return None
+
+        if trafilatura is None:
+            if not self._full_text_warning_logged:
+                self.logger.warning(
+                    "trafilatura is not installed; falling back to RSS snippets for full text."
+                )
+                self._full_text_warning_logged = True
+            return None
+
+        try:
+            response = await client.get(url, timeout=15.0, follow_redirects=True)
+            response.raise_for_status()
+            extracted = trafilatura.extract(
+                response.text,
+                url=url,
+                include_comments=False,
+                include_tables=False,
+                favor_recall=True,
+            )
+        except Exception as exc:
+            self.logger.debug(f"Full text extraction failed for {url}: {exc}")
+            return None
+
+        if extracted:
+            return clean_html_tags(extracted)
+        return None
+
+    async def _enrich_articles_with_full_text(
+        self,
+        client: httpx.AsyncClient,
+        articles: list[RawArticle],
+    ) -> None:
+        if not articles or not self.fetch_full_text_enabled:
+            return
+
+        semaphore = asyncio.Semaphore(self.full_text_concurrency)
+
+        async def enrich(article: RawArticle):
+            async with semaphore:
+                full_text = await self.fetch_full_text(client, article.url)
+                if full_text:
+                    article.content = truncate_text(full_text, self.full_text_max_chars)
+
+        await asyncio.gather(*(enrich(article) for article in articles))
+
+    async def fetch_feed(
+        self,
+        client: httpx.AsyncClient,
+        feed_cfg: dict,
+    ) -> tuple[list[RawArticle], set[str]]:
         url = feed_cfg.get("url")
         name = feed_cfg.get("name")
-        cat = feed_cfg.get("category")
-        
-        self.logger.info(f"📡 Fetching RSS: {name} ...")
-        articles = []
+        category = feed_cfg.get("category")
+
+        self.logger.info(f"Fetching RSS: {name} ...")
+        articles: list[RawArticle] = []
+        new_urls: set[str] = set()
+
         try:
-            # RSS 源经常连接缓慢或被墙，设一个较大的 timeout
             response = await client.get(url, timeout=20.0, follow_redirects=True)
             response.raise_for_status()
             parsed_feed = feedparser.parse(response.text)
-            
-            for entry in parsed_feed.entries:
-                link = entry.get('link', '')
-                if not link or link in self.seen_urls:
-                    continue
-                    
-                title = entry.get('title', 'No Title')
-                pub_date = entry.get('published', '')
-                
-                # 提取摘要和正文，有些 Feed 只有 summary 没有 content
-                summary_raw = entry.get('summary', '') 
-                content_raw = summary_raw
-                if 'content' in entry and len(entry.content) > 0:
-                     content_raw = entry.content[0].get('value', summary_raw)
-                     
-                summary_clean = clean_html_tags(summary_raw)
-                content_clean = clean_html_tags(content_raw)
-                
-                # 1. 48小时过滤
-                if not self.is_within_time_window(pub_date):
-                    continue
-                    
-                # 2. Arxiv 关键词正则预过滤
-                if not self.apply_arxiv_prefilter(feed_cfg, title, summary_clean):
-                    continue
-                    
-                new_urls_batch.add(link)
-                articles.append(RawArticle(
+        except Exception as exc:
+            self.logger.error(f"Failed to fetch {name}: {exc}")
+            return articles, new_urls
+
+        for entry in parsed_feed.entries:
+            link = entry.get("link", "")
+            if not link or link in self.seen_urls:
+                continue
+
+            title = entry.get("title", "No Title")
+            published = entry.get("published", "")
+            summary_raw = entry.get("summary", "")
+            content_raw = summary_raw
+            if "content" in entry and len(entry.content) > 0:
+                content_raw = entry.content[0].get("value", summary_raw)
+
+            summary_clean = clean_html_tags(summary_raw)
+            content_clean = clean_html_tags(content_raw)
+
+            if not self.is_within_time_window(published):
+                continue
+
+            if not self.apply_arxiv_prefilter(feed_cfg, title, summary_clean):
+                continue
+
+            new_urls.add(link)
+            articles.append(
+                RawArticle(
                     title=title,
                     url=link,
-                    published=pub_date,
+                    published=published,
                     source_name=name,
-                    source_category=cat,
+                    source_category=category,
                     summary=truncate_text(summary_clean, 300),
-                    content=truncate_text(content_clean, 500)
-                ))
-            self.logger.info(f"✅ Extracted {len(articles)} fresh items from {name}.")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Failed to fetch {name}: {e}")
-            
-        return articles
+                    content=truncate_text(content_clean, self.full_text_max_chars),
+                )
+            )
 
-    async def run(self) -> List[RawArticle]:
-        feeds = [f for f in self.config.get("feeds", []) if f.get("enabled", True)]
-        all_articles = []
-        new_urls_batch = set()
-        
-        # 常见 feed 可能会封禁无 User-Agent 的爬虫
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI-Daily-Bot/1.0'}
-        
+        if category in {"news", "official", "community"}:
+            await self._enrich_articles_with_full_text(client, articles)
+
+        self.logger.info(f"Extracted {len(articles)} fresh items from {name}.")
+        return articles, new_urls
+
+    async def run(self) -> list[RawArticle]:
+        feeds = [feed for feed in self.config.get("feeds", []) if feed.get("enabled", True)]
+        all_articles: list[RawArticle] = []
+        seen_at = datetime.now(timezone.utc).isoformat()
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI-Daily-Bot/1.0"
+        }
+
         async with httpx.AsyncClient(headers=headers) as client:
-            tasks = [self.fetch_feed(client, f, new_urls_batch) for f in feeds]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for res in results:
-                if isinstance(res, list):
-                    all_articles.extend(res)
-                    
-        self.seen_urls.update(new_urls_batch)
-        self.logger.info(f"🎉 Fetch complete. Got {len(all_articles)} total candidates to process.")
+            results = await asyncio.gather(
+                *(self.fetch_feed(client, feed) for feed in feeds),
+                return_exceptions=True,
+            )
+
+        for result in results:
+            if isinstance(result, Exception):
+                self.logger.error(f"Feed task failed: {result}")
+                continue
+
+            articles, new_urls = result
+            all_articles.extend(articles)
+            self.seen_urls.update({url: seen_at for url in new_urls})
+
+        self.logger.info(f"Fetch complete. Got {len(all_articles)} total candidates to process.")
         return all_articles

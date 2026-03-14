@@ -1,29 +1,31 @@
-﻿<script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue';
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useDigestStore } from '../stores/digest';
 import {
+  NAlert,
+  NButton,
+  NDivider,
+  NEmpty,
+  NIcon,
+  NInput,
+  NRadioButton,
+  NRadioGroup,
   NSelect,
   NSlider,
-  NInput,
-  NRadioGroup,
-  NRadioButton,
-  NStatistic,
-  NEmpty,
   NSpin,
-  NButton,
-  NIcon,
-  NDivider,
+  NStatistic,
+  useMessage,
 } from 'naive-ui';
 import type { SelectOption } from 'naive-ui';
 import {
+  ArrowBackOutline,
   FilterOutline,
   SearchOutline,
-  ArrowBackOutline,
-  TrendingUpOutline,
   TimeOutline,
+  TrendingUpOutline,
 } from '@vicons/ionicons5';
 import ArticleCard from '../components/ArticleCard.vue';
+import { useDigestStore } from '../stores/digest';
 import type { QueryParams } from '../types';
 
 const props = defineProps<{
@@ -32,6 +34,7 @@ const props = defineProps<{
 
 const store = useDigestStore();
 const router = useRouter();
+const message = useMessage();
 
 const searchKeyword = ref('');
 const selectedCategory = ref<string | null>(null);
@@ -40,11 +43,11 @@ const minImportance = ref(1);
 const sortBy = ref<'importance' | 'published'>('importance');
 
 const categories: SelectOption[] = [
-  { label: '全部', value: '' },
-  { label: 'Arxiv 论文', value: 'arxiv' },
-  { label: '官方发布', value: 'official' },
-  { label: '新闻媒体', value: 'news' },
-  { label: '社区内容', value: 'community' },
+  { label: 'All', value: '' },
+  { label: 'Arxiv papers', value: 'arxiv' },
+  { label: 'Official updates', value: 'official' },
+  { label: 'News coverage', value: 'news' },
+  { label: 'Community', value: 'community' },
 ];
 
 const loadData = () => {
@@ -55,20 +58,54 @@ const loadData = () => {
     min_importance: minImportance.value,
     sort: sortBy.value,
   };
-  store.fetchDigest(props.date, params);
+  void store.fetchDigest(props.date, params);
 };
 
-onMounted(loadData);
+let loadTimer: ReturnType<typeof setTimeout> | null = null;
+
+const cancelScheduledLoad = () => {
+  if (loadTimer !== null) {
+    clearTimeout(loadTimer);
+    loadTimer = null;
+  }
+};
+
+const scheduleLoad = (delay = 300) => {
+  cancelScheduledLoad();
+  loadTimer = window.setTimeout(() => {
+    loadTimer = null;
+    loadData();
+  }, delay);
+};
 
 watch([searchKeyword, selectedCategory, selectedTags, minImportance, sortBy], () => {
-  loadData();
+  scheduleLoad();
 });
 
-watch(() => props.date, loadData);
+watch(
+  () => props.date,
+  () => {
+    store.clearTagCache();
+    cancelScheduledLoad();
+    loadData();
+  },
+);
+
+watch(
+  () => store.error,
+  (error) => {
+    if (error) {
+      message.error(error);
+    }
+  },
+);
 
 const tagOptions = computed(() => {
-  if (!store.currentDigest?.stats?.by_tag) return [];
-  return Object.keys(store.currentDigest.stats.by_tag).map((tag) => ({
+  const tags =
+    store.allTagsDate === props.date && store.allTags.length > 0
+      ? store.allTags
+      : Object.keys(store.currentDigest?.stats?.by_tag ?? {});
+  return tags.map((tag) => ({
     label: tag,
     value: tag,
   }));
@@ -79,6 +116,9 @@ const goBack = () => {
 };
 
 const siderContentRef = ref<HTMLElement | null>(null);
+const prefersReducedMotion = ref(false);
+let mediaQuery: MediaQueryList | null = null;
+let removeMotionListener: (() => void) | null = null;
 let currentY = 0;
 let velocityY = 0;
 let targetY = 0;
@@ -88,6 +128,10 @@ const STIFFNESS = 0.08;
 const DAMPING = 0.82;
 const REST_THRESHOLD = 0.5;
 let isAnimating = false;
+
+const updateReducedMotion = (value: boolean) => {
+  prefersReducedMotion.value = value;
+};
 
 const clampTarget = () => {
   const el = siderContentRef.value;
@@ -99,21 +143,22 @@ const clampTarget = () => {
   return Math.min(scrollOffset, Math.max(0, maxTravel));
 };
 
+const applySidebarPosition = (y: number) => {
+  if (siderContentRef.value) {
+    siderContentRef.value.style.transform = `translateY(${y}px)`;
+  }
+};
+
 const animate = () => {
   const force = (targetY - currentY) * STIFFNESS;
   velocityY += force;
   velocityY *= DAMPING;
   currentY += velocityY;
-
-  if (siderContentRef.value) {
-    siderContentRef.value.style.transform = `translateY(${currentY}px)`;
-  }
+  applySidebarPosition(currentY);
 
   if (Math.abs(velocityY) < REST_THRESHOLD && Math.abs(targetY - currentY) < REST_THRESHOLD) {
     currentY = targetY;
-    if (siderContentRef.value) {
-      siderContentRef.value.style.transform = `translateY(${currentY}px)`;
-    }
+    applySidebarPosition(currentY);
     isAnimating = false;
     return;
   }
@@ -123,6 +168,13 @@ const animate = () => {
 
 const onScroll = () => {
   targetY = clampTarget();
+  if (prefersReducedMotion.value) {
+    currentY = targetY;
+    velocityY = 0;
+    applySidebarPosition(currentY);
+    return;
+  }
+
   if (!isAnimating) {
     isAnimating = true;
     rafId = requestAnimationFrame(animate);
@@ -130,15 +182,31 @@ const onScroll = () => {
 };
 
 onMounted(() => {
+  store.clearTagCache();
+  loadData();
+
+  mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  updateReducedMotion(mediaQuery.matches);
+
+  const handleMotionChange = (event: MediaQueryListEvent) => {
+    updateReducedMotion(event.matches);
+  };
+
+  mediaQuery.addEventListener('change', handleMotionChange);
+  removeMotionListener = () => mediaQuery?.removeEventListener('change', handleMotionChange);
+
   nextTick(() => {
     if (siderContentRef.value) {
       siderInitialTop = siderContentRef.value.getBoundingClientRect().top + window.scrollY;
     }
     window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
   });
 });
 
 onBeforeUnmount(() => {
+  cancelScheduledLoad();
+  removeMotionListener?.();
   window.removeEventListener('scroll', onScroll);
   cancelAnimationFrame(rafId);
 });
@@ -146,44 +214,44 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="digest-view">
-    <div class="header-nav">
+    <div class="header-nav animate-fade-up">
       <n-button text @click="goBack" class="back-btn">
         <template #icon><n-icon><ArrowBackOutline /></n-icon></template>
-        返回日报列表
+        Back to archive
       </n-button>
       <div class="current-date">
         <h2>AI Daily - {{ date }}</h2>
         <span v-if="store.currentDigest" class="gen-time">
-          生成时间：{{ new Date(store.currentDigest.generated_at).toLocaleString() }}
+          Generated {{ new Date(store.currentDigest.generated_at).toLocaleString() }}
         </span>
       </div>
     </div>
 
     <div class="main-layout">
-      <aside class="filter-sider">
+      <aside class="filter-sider animate-fade-up delay-1">
         <div ref="siderContentRef" class="sider-content">
           <div class="filter-section">
-            <h3 class="filter-title"><n-icon><SearchOutline /></n-icon> 搜索</h3>
-            <n-input v-model:value="searchKeyword" placeholder="按标题或摘要搜索..." clearable />
+            <h3 class="filter-title"><n-icon><SearchOutline /></n-icon> Search</h3>
+            <n-input v-model:value="searchKeyword" placeholder="Search title or summary..." clearable />
           </div>
 
           <n-divider />
 
           <div class="filter-section">
-            <h3 class="filter-title"><n-icon><FilterOutline /></n-icon> 筛选</h3>
+            <h3 class="filter-title"><n-icon><FilterOutline /></n-icon> Filters</h3>
 
             <div class="filter-item">
-              <label>来源分类</label>
-              <n-select v-model:value="selectedCategory" :options="categories" placeholder="选择分类" />
+              <label>Category</label>
+              <n-select v-model:value="selectedCategory" :options="categories" placeholder="Choose a category" />
             </div>
 
             <div class="filter-item">
-              <label>标签</label>
-              <n-select v-model:value="selectedTags" :options="tagOptions" multiple placeholder="选择标签" />
+              <label>Tags</label>
+              <n-select v-model:value="selectedTags" :options="tagOptions" multiple placeholder="Choose tags" />
             </div>
 
             <div class="filter-item">
-              <label>最低重要性（{{ minImportance }}+）</label>
+              <label>Minimum importance ({{ minImportance }}+)</label>
               <n-slider v-model:value="minImportance" :min="1" :max="5" :step="1" />
             </div>
           </div>
@@ -191,38 +259,47 @@ onBeforeUnmount(() => {
           <n-divider />
 
           <div class="filter-section">
-            <h3 class="filter-title">排序方式</h3>
+            <h3 class="filter-title">Sort</h3>
             <n-radio-group v-model:value="sortBy" size="small" class="sort-group">
               <n-radio-button value="importance">
-                <n-icon><TrendingUpOutline /></n-icon> 按重要性
+                <n-icon><TrendingUpOutline /></n-icon> Importance
               </n-radio-button>
               <n-radio-button value="published">
-                <n-icon><TimeOutline /></n-icon> 按时间
+                <n-icon><TimeOutline /></n-icon> Published
               </n-radio-button>
             </n-radio-group>
           </div>
 
           <div class="stats-card" v-if="store.currentDigest?.stats">
-            <n-statistic label="当前结果数" :value="store.currentDigest.stats.total">
-              <template #suffix>篇</template>
+            <n-statistic label="Visible results" :value="store.currentDigest.stats.total">
+              <template #suffix>items</template>
             </n-statistic>
           </div>
         </div>
       </aside>
 
       <main class="content-area">
+        <n-alert
+          v-if="store.error"
+          type="error"
+          title="Digest request failed"
+          class="error-alert animate-fade-up"
+        >
+          {{ store.error }}
+        </n-alert>
         <n-spin :show="store.loading">
-          <div v-if="store.currentDigest?.articles.length" class="article-list">
+          <div v-if="store.currentDigest?.articles.length" class="article-list animate-fade-up delay-2">
             <article-card
-              v-for="article in store.currentDigest.articles"
+              v-for="(article, index) in store.currentDigest.articles"
               :key="article.id"
               :article="article"
+              :style="{ animationDelay: `${index * 50 + 200}ms` }"
             />
           </div>
           <n-empty
             v-else-if="!store.loading"
-            description="没有符合当前筛选条件的内容"
-            class="empty-state"
+            description="No articles match the current filters."
+            class="empty-state animate-fade-up"
           />
         </n-spin>
       </main>
@@ -240,24 +317,38 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 24px;
-  margin-bottom: 24px;
+  margin-bottom: 40px;
+}
+
+.back-btn {
+  font-size: 15px;
+  color: var(--n-text-color-3);
+  transition: color 0.2s;
+}
+
+.back-btn:hover {
+  color: var(--n-text-color);
 }
 
 .current-date h2 {
   margin: 0;
-  font-size: 24px;
-  color: #f0f6fc;
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--n-text-color);
+  letter-spacing: -0.01em;
 }
 
 .gen-time {
-  font-size: 12px;
-  color: #8b949e;
+  font-size: 13px;
+  color: var(--n-text-color-3);
+  letter-spacing: 0.02em;
 }
 
 .main-layout {
   display: flex;
   align-items: stretch;
-  gap: 24px;
+  gap: 40px;
 }
 
 .filter-sider {
@@ -266,37 +357,44 @@ onBeforeUnmount(() => {
 }
 
 .sider-content {
-  padding: 16px;
-  background-color: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  padding: 24px;
+  background-color: var(--n-card-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 16px;
   will-change: transform;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.is-dark .sider-content {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .filter-section {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .filter-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  color: #8b949e;
-  margin-bottom: 12px;
+  color: var(--n-text-color-3);
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .filter-item {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .filter-item label {
   display: block;
   font-size: 13px;
-  color: #c9d1d9;
+  color: var(--n-text-color-2);
   margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .sort-group {
@@ -309,11 +407,11 @@ onBeforeUnmount(() => {
 }
 
 .stats-card {
-  margin-top: 24px;
-  padding: 16px;
-  background-color: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  margin-top: 32px;
+  padding: 20px;
+  background-color: var(--n-body-color);
+  border: 1px solid var(--n-border-color);
+  border-radius: 12px;
 }
 
 .content-area {
@@ -321,8 +419,12 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.error-alert {
+  margin-bottom: 16px;
+}
+
 .empty-state {
-  margin-top: 80px;
+  margin-top: 100px;
 }
 
 @media (max-width: 900px) {

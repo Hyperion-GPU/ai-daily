@@ -1,5 +1,11 @@
+export interface DateEntry {
+  date: string;
+  total: number;
+  by_category: Record<string, number>;
+}
+
 export interface DateList {
-  dates: string[];
+  dates: DateEntry[];
   latest: string | null;
 }
 

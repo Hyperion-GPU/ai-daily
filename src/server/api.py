@@ -1,5 +1,7 @@
 from collections import Counter
+from datetime import datetime, timezone
 
+from dateutil import parser as date_parser
 from fastapi import APIRouter, HTTPException, Query
 
 from .loader import list_dates, load_digest
@@ -8,10 +10,36 @@ from .schemas import DateListResponse, DigestResponse
 router = APIRouter(prefix="/api")
 
 
+def _published_sort_key(article: dict) -> datetime:
+    published = article.get("published")
+    if not published:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+    try:
+        parsed = date_parser.parse(str(published))
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 @router.get("/dates", response_model=DateListResponse)
 def get_dates():
-    dates = list_dates()
-    return {"dates": dates, "latest": dates[0] if dates else None}
+    date_strings = list_dates()
+    dates = []
+    for date in date_strings:
+        digest = load_digest(date)
+        stats = digest.get("stats", {}) if digest else {}
+        dates.append(
+            {
+                "date": date,
+                "total": stats.get("total", 0),
+                "by_category": stats.get("by_category", {}),
+            }
+        )
+    return {"dates": dates, "latest": date_strings[0] if date_strings else None}
 
 
 @router.get("/digest/{date}", response_model=DigestResponse)
@@ -29,33 +57,35 @@ def get_digest(
 
     articles = data["articles"]
 
-    # 过滤
     if tags:
-        articles = [a for a in articles if any(t in a["tags"] for t in tags)]
+        articles = [article for article in articles if any(tag in article["tags"] for tag in tags)]
     if category:
-        articles = [a for a in articles if a["source_category"] == category]
+        articles = [article for article in articles if article["source_category"] == category]
     if min_importance > 1:
-        articles = [a for a in articles if a["importance"] >= min_importance]
+        articles = [article for article in articles if article["importance"] >= min_importance]
     if q:
-        q_lower = q.lower()
+        q_normalized = q.casefold()
         articles = [
-            a for a in articles
-            if q_lower in a["title"].lower() or q_lower in a["summary_zh"]
+            article
+            for article in articles
+            if q_normalized in str(article.get("title", "")).casefold()
+            or q_normalized in str(article.get("summary_zh", "")).casefold()
         ]
 
-    # 排序
-    articles = sorted(articles, key=lambda a: a.get(sort, 0), reverse=True)
+    if sort == "published":
+        articles = sorted(articles, key=_published_sort_key, reverse=True)
+    else:
+        articles = sorted(articles, key=lambda article: article.get("importance", 0), reverse=True)
 
-    # 重建过滤后的 stats
-    by_cat = Counter(a["source_category"] for a in articles)
-    by_tag = Counter(t for a in articles for t in a["tags"])
+    by_category = Counter(article["source_category"] for article in articles)
+    by_tag = Counter(tag for article in articles for tag in article["tags"])
 
     return {
         "date": data["date"],
         "generated_at": data["generated_at"],
         "stats": {
             "total": len(articles),
-            "by_category": dict(by_cat),
+            "by_category": dict(by_category),
             "by_tag": dict(by_tag),
         },
         "articles": articles,

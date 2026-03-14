@@ -2,10 +2,12 @@
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timezone
 from pathlib import Path
 
+from src.utils import now_in_config_timezone
+
 logger = logging.getLogger('aidaily')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _article_id(url: str) -> str:
@@ -14,10 +16,11 @@ def _article_id(url: str) -> str:
 
 def generate_report(articles: list[dict], config: dict) -> Path:
     """Generate both Markdown and JSON reports."""
-    out_dir = Path(config.get('outputs', {}).get('output_dir', 'output'))
+    out_dir = PROJECT_ROOT / config.get('outputs', {}).get('output_dir', 'output')
     out_dir.mkdir(exist_ok=True)
 
-    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    generated_at = now_in_config_timezone(config)
+    date_str = generated_at.strftime('%Y-%m-%d')
     md_path = out_dir / config.get('outputs', {}).get('report_filename', '{date}.md').replace('{date}', date_str)
     json_path = out_dir / f'{date_str}.json'
 
@@ -30,7 +33,7 @@ def generate_report(articles: list[dict], config: dict) -> Path:
 
     json_data = {
         'date': date_str,
-        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'generated_at': generated_at.isoformat(),
         'stats': {
             'total': len(articles_sorted),
             'by_category': by_category,
@@ -65,7 +68,7 @@ def generate_report(articles: list[dict], config: dict) -> Path:
         lines.append('')
 
     lines.append('---')
-    lines.append(f"_Generated at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}_")
+    lines.append(f"_Generated at {generated_at.strftime('%Y-%m-%d %H:%M %Z')}_")
 
     with open(md_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))

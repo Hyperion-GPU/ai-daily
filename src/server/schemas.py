@@ -27,6 +27,12 @@ class DigestResponse(BaseModel):
     articles: list[Article]
 
 
+class DateEntry(BaseModel):
+    date: str
+    total: int
+    by_category: dict[str, int]
+
+
 class DateListResponse(BaseModel):
-    dates: list[str]
+    dates: list[DateEntry]
     latest: str | None

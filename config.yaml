@@ -1,7 +1,9 @@
 # AI Daily Configuration
 
+timezone: "Asia/Shanghai"
+
 llm:
-  provider: "siliconflow"  # options: "siliconflow", "newapi"
+  provider: "siliconflow"  # options: siliconflow, newapi
   siliconflow:
     base_url: "https://api.siliconflow.cn/v1"
     api_key_env: "SILICONFLOW_API_KEY"
@@ -16,11 +18,16 @@ llm:
     max_tokens: 1500
 
 pipeline:
-  max_articles_per_day: 30       # 最终输出的最多文章数
-  max_articles_to_stage2: 50     # Stage 1 初筛后，进入 Stage 2(精读摘要)的最大篇数
-  stage1_batch_size: 50          # Stage 1 中合并 Title 请求的 chunk size
-  stage2_concurrency: 5          # Stage 2 (精筛) 并发数 (Semaphore)
-  time_window_hours: 48          # 新闻鲜活度: 只看过去 48h 内发布的文章
+  seen_url_retention_days: 7     # Keep dedupe state for the last 7 days only
+  fetch_full_text: true          # Fetch article body for non-arxiv sources when possible
+  full_text_max_chars: 2000      # Upper bound for content passed to Stage 2
+  full_text_concurrency: 5       # Concurrency limit for full-text extraction
+  max_articles_per_day: 30       # Max number of articles in the final report
+  max_articles_to_stage2: 50     # Max number of articles entering Stage 2
+  non_arxiv_ratio: 0.4           # Share of non-arxiv items kept in Stage 1 and final output
+  stage1_batch_size: 50          # Chunk size for Stage 1 title filtering
+  stage2_concurrency: 5          # Concurrency for Stage 2 summarization
+  time_window_hours: 48          # Only consider articles published in the last 48 hours
 
 outputs:
   output_dir: "output"
@@ -28,15 +35,14 @@ outputs:
   log_filename: "{date}.log"
 
 feeds:
-  # === 研究/论文类 ===
+  # Research / papers
   - name: "Arxiv cs.AI"
     url: "http://export.arxiv.org/rss/cs.AI"
     category: "arxiv"
     enabled: true
     pre_filter: true
-    # 标题或摘要必须命中正则才进入后续管线（忽略大小写在代码中实现）
     keywords: "transformer|agent|reasoning|multimodal|rlhf|diffusion|rag|llm|gpt|claude|prompt"
-  
+
   - name: "Arxiv cs.CL"
     url: "http://export.arxiv.org/rss/cs.CL"
     category: "arxiv"
@@ -58,13 +64,13 @@ feeds:
     pre_filter: true
     keywords: "transformer|agent|reasoning|multimodal|rlhf|diffusion|rag|llm|gpt|claude|prompt"
 
-  # === 新闻/社区类 ===
+  # News / community
   - name: "Hacker News (AI)"
     url: "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+machine+learning&points=50"
     category: "news"
     enabled: true
     pre_filter: false
-  
+
   - name: "The Verge AI"
     url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
     category: "news"
@@ -89,7 +95,7 @@ feeds:
     enabled: true
     pre_filter: false
 
-  # === 官方博客类 ===
+  # Official blogs
   - name: "OpenAI Blog"
     url: "https://openai.com/blog/rss.xml"
     category: "official"
@@ -113,7 +119,7 @@ feeds:
     category: "official"
     enabled: true
     pre_filter: false
-    
+
   - name: "HuggingFace Blog"
     url: "https://huggingface.co/blog/feed.xml"
     category: "community"

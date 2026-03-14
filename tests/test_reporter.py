@@ -1,0 +1,68 @@
+import json
+
+from src import reporter
+
+
+def test_generate_report_writes_json_and_markdown(tmp_path):
+    config = {
+        "timezone": "UTC",
+        "outputs": {
+            "output_dir": str(tmp_path),
+            "report_filename": "{date}.md",
+        },
+    }
+    articles = [
+        {
+            "title": "Important release",
+            "url": "https://example.com/important",
+            "published": "2026-03-14T09:00:00+00:00",
+            "source_name": "Example",
+            "source_category": "official",
+            "summary_zh": "A major release shipped.",
+            "tags": ["release", "models"],
+            "importance": 5,
+        },
+        {
+            "title": "Minor update",
+            "url": "https://example.com/minor",
+            "published": "2026-03-14T08:00:00+00:00",
+            "source_name": "Example",
+            "source_category": "news",
+            "summary_zh": "A smaller follow-up update.",
+            "tags": ["news"],
+            "importance": 2,
+        },
+    ]
+
+    md_path = reporter.generate_report(articles, config)
+    json_path = tmp_path / "2026-03-14.json"
+
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    markdown = md_path.read_text(encoding="utf-8")
+
+    assert md_path == tmp_path / "2026-03-14.md"
+    assert payload["stats"]["total"] == 2
+    assert payload["stats"]["by_category"] == {"official": 1, "news": 1}
+    assert payload["stats"]["by_tag"] == {"release": 1, "models": 1, "news": 1}
+    assert payload["articles"][0]["id"] == reporter._article_id("https://example.com/important")
+    assert "## Highlights" in markdown
+    assert "## More Updates" in markdown
+    assert "Important release" in markdown
+
+
+def test_generate_report_handles_empty_article_list(tmp_path):
+    config = {
+        "timezone": "UTC",
+        "outputs": {
+            "output_dir": str(tmp_path),
+            "report_filename": "{date}.md",
+        },
+    }
+
+    md_path = reporter.generate_report([], config)
+    markdown = md_path.read_text(encoding="utf-8")
+    payload = json.loads((tmp_path / "2026-03-14.json").read_text(encoding="utf-8"))
+
+    assert payload["stats"]["total"] == 0
+    assert payload["articles"] == []
+    assert "_No new high-value AI updates today._" in markdown

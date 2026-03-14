@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-OUTPUT_DIR = Path("output")
+OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
 
 def list_dates() -> list[str]:

@@ -10,7 +10,7 @@ app = FastAPI(title="AI Daily", docs_url="/api/docs")
 app.include_router(router)
 
 # 挂载 Vue 构建产物
-FRONTEND_DIST = Path("frontend/dist")
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

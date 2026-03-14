@@ -1,0 +1,74 @@
+# AI Daily
+
+AI Daily is a Python + FastAPI + Vue 3 project that builds a daily AI digest from RSS feeds.
+
+## What it does
+
+- Fetches AI-related RSS feeds from research, official blogs, news, and community sources.
+- Filters candidate articles with a two-stage LLM pipeline.
+- Generates daily Markdown and JSON reports in `output/`.
+- Serves a small web UI for browsing, searching, and filtering digests.
+
+## Project layout
+
+- `main.py`: pipeline entrypoint
+- `src/fetcher.py`: RSS fetching, dedupe state, optional full-text extraction
+- `src/llm.py`: LLM calls and JSON normalization
+- `src/reporter.py`: Markdown and JSON report generation
+- `src/server/`: FastAPI API and SPA serving
+- `frontend/`: Vue 3 frontend
+- `prompts/`: Stage 1 and Stage 2 LLM prompts
+- `tests/`: pytest coverage for core helpers
+
+## Run locally
+
+### Backend and pipeline
+
+```powershell
+.venv\Scripts\pip install -r requirements.txt
+python main.py
+```
+
+Dry run without LLM calls:
+
+```powershell
+python main.py --dry-run
+```
+
+### Web app
+
+```powershell
+cd frontend
+npm install
+npm run build
+cd ..
+.venv\Scripts\uvicorn src.server.main:app --host 127.0.0.1 --port 8000
+```
+
+Then open `http://localhost:8000`.
+
+## Configuration
+
+Main configuration lives in `config.yaml`.
+
+- `timezone`: timezone used for logs and report dates
+- `pipeline.time_window_hours`: article freshness window
+- `pipeline.non_arxiv_ratio`: share of non-arxiv articles kept in Stage 1 and final output
+- `pipeline.fetch_full_text`: whether to fetch full article bodies for non-arxiv feeds
+- `llm`: provider, model, and API key environment variable
+
+## Environment
+
+Create `.env` with the API key required by the configured LLM provider, for example:
+
+```env
+SILICONFLOW_API_KEY=your_key_here
+```
+
+`.env` is ignored by Git.
+
+## Tests
+
+```powershell
+.venv\Scripts\pytest.exe tests -v
+```

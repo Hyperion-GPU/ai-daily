@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, InternalServerError, RateLimitError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 load_dotenv(Path(__file__).resolve().parent.parent / '.env')
@@ -34,7 +34,9 @@ class LLMClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=30),
-        retry=retry_if_exception_type((Exception,)),
+        retry=retry_if_exception_type(
+            (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError)
+        ),
         before_sleep=lambda retry_state: logging.getLogger('aidaily').warning(
             f'LLM call failed, retrying (attempt {retry_state.attempt_number})...'
         ),
