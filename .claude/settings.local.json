@@ -9,7 +9,8 @@
       "Bash(python -m json.tool)",
       "Bash(curl -s \"http://127.0.0.1:8000/api/digest/2026-03-03?tags=LLMs&min_importance=4\")",
       "Bash(curl -s \"http://127.0.0.1:8000/api/digest/2026-03-03?q=Meta&sort=published\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://127.0.0.1:8000/api/digest/2099-01-01\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://127.0.0.1:8000/api/digest/2099-01-01\")",
+      "Bash(find:*)"
     ]
   }
 }

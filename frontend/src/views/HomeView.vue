@@ -1,230 +1,611 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NEmpty, NIcon, NList, NListItem, NSpin, NTag } from 'naive-ui';
-import { CalendarOutline, ChevronForward, DocumentTextOutline } from '@vicons/ionicons5';
-import { useDigestStore } from '../stores/digest';
-import type { DateEntry } from '../types';
+import { NButton, NEmpty, NIcon, NSpin, useMessage } from 'naive-ui';
+import { CalendarOutline, ChevronForward, RefreshOutline } from '@vicons/ionicons5';
+import { useLocale } from '../composables/useLocale';
+import { PIPELINE_ALREADY_RUNNING, useDigestStore } from '../stores/digest';
+import type { DateEntry, PipelineStatus } from '../types';
 
 const store = useDigestStore();
 const router = useRouter();
+const message = useMessage();
+const { copy, dateTimeLocale } = useLocale();
 
-const pageTitle = 'Digest Archive';
-const pageDescription = 'Browse generated AI Daily digests by date.';
-const latestLabel = 'Latest';
-const articlesLabel = 'articles';
-const emptyLabel = 'No digest is available yet.';
+const latestEntry = computed(() => store.dateList.dates[0] ?? null);
+const archiveArticleCount = computed(() =>
+  store.dateList.dates.reduce((sum, entry) => sum + entry.total, 0),
+);
 
-const categoryLabels: Record<string, string> = {
-  arxiv: 'Arxiv',
-  official: 'Official',
-  news: 'News',
-  community: 'Community',
-};
+const pipelineButtonLabel = computed(() =>
+  store.pipelineStatus.running ? copy.value.home.fetchRunning : copy.value.home.fetchToday,
+);
 
-const categoryTagType = (
-  category: string,
-): 'default' | 'success' | 'warning' | 'info' => {
-  switch (category) {
-    case 'official':
-      return 'success';
-    case 'news':
-      return 'warning';
-    case 'community':
-      return 'info';
+const progressStageLabel = computed(() => {
+  const stage = store.pipelineStatus.progress?.stage;
+  switch (stage) {
+    case 'starting':
+      return copy.value.home.progressStarting;
+    case 'fetching':
+      return copy.value.home.progressFetching;
+    case 'stage1':
+      return copy.value.home.progressStage1;
+    case 'stage2':
+      return copy.value.home.progressStage2;
+    case 'finalizing':
+      return copy.value.home.progressFinalizing;
+    case 'completed':
+      return copy.value.home.progressCompleted;
+    case 'error':
+      return copy.value.home.progressError;
     default:
-      return 'default';
+      return copy.value.home.progressIdle;
   }
+});
+
+const progressPercent = computed(() => {
+  const stage = store.pipelineStatus.progress?.stage;
+  const current = store.pipelineStatus.progress?.current;
+  const total = store.pipelineStatus.progress?.total;
+  if (typeof current !== 'number' || typeof total !== 'number' || total <= 0) {
+    switch (stage) {
+      case 'starting':
+        return 5;
+      case 'fetching':
+        return 18;
+      case 'stage1':
+        return 42;
+      case 'stage2':
+        return 74;
+      case 'finalizing':
+        return 92;
+      case 'completed':
+      case 'error':
+        return 100;
+      default:
+        return 0;
+    }
+  }
+  return Math.max(0, Math.min(100, Math.round((current / total) * 100)));
+});
+
+const progressStats = computed(() => {
+  const progress = store.pipelineStatus.progress;
+  if (!progress) {
+    return [];
+  }
+
+  return [
+    {
+      key: 'candidates',
+      label: copy.value.home.progressCandidates,
+      value: progress.candidates,
+    },
+    {
+      key: 'selected',
+      label: copy.value.home.progressSelected,
+      value: progress.selected,
+    },
+    {
+      key: 'processed',
+      label: copy.value.home.progressProcessed,
+      value: progress.processed,
+    },
+    {
+      key: 'report',
+      label: copy.value.home.progressReport,
+      value: progress.report_articles,
+    },
+  ].filter((item) => typeof item.value === 'number');
+});
+
+const statusNote = computed(() => {
+  if (store.pipelineStatus.running && store.pipelineStatus.progress?.message) {
+    return store.pipelineStatus.progress.message;
+  }
+
+  if (store.pipelineStatus.last_run) {
+    return new Intl.DateTimeFormat(dateTimeLocale.value, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(store.pipelineStatus.last_run));
+  }
+
+  return copy.value.home.progressIdle;
+});
+
+const formatDate = (date: string) => {
+  const value = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(value.getTime())) {
+    return date;
+  }
+  return new Intl.DateTimeFormat(dateTimeLocale.value, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(value);
 };
 
 const categoryEntries = (entry: DateEntry) =>
   Object.entries(entry.by_category ?? {}).sort((a, b) => b[1] - a[1]);
 
+const categoryLabelMap = computed<Record<string, string>>(() => ({
+  arxiv: copy.value.categories.arxiv,
+  official: copy.value.categories.official,
+  news: copy.value.categories.news,
+  community: copy.value.categories.community,
+}));
+
+const handlePipelineSettled = (status: PipelineStatus) => {
+  if (status.error || status.last_outcome === 'error') {
+    message.error(status.error || copy.value.home.fetchError);
+    return;
+  }
+
+  if (status.last_outcome === 'no_new_items') {
+    message.info(copy.value.home.fetchNoUpdates);
+    return;
+  }
+
+  message.success(copy.value.home.fetchSuccess);
+};
+
+const initializeView = async () => {
+  await store.fetchDateList();
+  const status = await store.refreshPipelineStatus();
+  if (status.running) {
+    store.startPipelinePolling(handlePipelineSettled);
+  }
+};
+
 onMounted(() => {
-  void store.fetchDateList();
+  void initializeView();
 });
 
+onBeforeUnmount(() => {
+  store.stopPipelinePolling();
+});
+
+const fetchToday = async () => {
+  if (store.pipelineStatus.running) {
+    message.warning(copy.value.home.fetchAlreadyRunning);
+    return;
+  }
+
+  try {
+    await store.triggerPipeline();
+    store.startPipelinePolling(handlePipelineSettled);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : copy.value.home.fetchError;
+    if (errorMessage === PIPELINE_ALREADY_RUNNING) {
+      message.warning(copy.value.home.fetchAlreadyRunning);
+      store.startPipelinePolling(handlePipelineSettled);
+      return;
+    }
+    message.error(errorMessage || copy.value.home.fetchError);
+  }
+};
+
 const goToDigest = (date: string) => {
-  router.push({ name: 'digest', params: { date } });
+  void router.push({ name: 'digest', params: { date } });
 };
 </script>
 
 <template>
   <div class="home-view">
-    <div class="view-header animate-fade-up">
-      <h2>{{ pageTitle }}</h2>
-      <p>{{ pageDescription }}</p>
-    </div>
+    <section class="hero-grid">
+      <div class="paper-panel hero-copy animate-fade-up">
+        <p class="eyebrow">AI Daily</p>
+        <h1 class="editorial-title">{{ copy.home.pageTitle }}</h1>
+        <p class="lede">
+          {{ copy.home.pageDescription }}
+        </p>
 
-    <n-spin :show="store.loading">
-      <div v-if="store.dateList.dates.length > 0" class="date-list animate-fade-up delay-1">
-        <n-list hoverable clickable bordered>
-          <n-list-item
-            v-for="(entry, index) in store.dateList.dates"
-            :key="entry.date"
-            @click="goToDigest(entry.date)"
-            class="animate-fade-up"
-            :style="{ animationDelay: `${index * 40 + 100}ms` }"
+        <div class="metric-grid hero-metrics">
+          <div class="metric-card">
+            <span class="metric-value">{{ store.dateList.dates.length }}</span>
+            <span class="metric-label">Archive</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-value">{{ archiveArticleCount }}</span>
+            <span class="metric-label">{{ copy.home.articles }}</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-value">{{ latestEntry ? formatDate(latestEntry.date) : '—' }}</span>
+            <span class="metric-label">{{ copy.home.latest }}</span>
+          </div>
+        </div>
+
+        <div class="hero-actions">
+          <n-button
+            type="primary"
+            size="large"
+            class="primary-action"
+            :loading="store.pipelineStatus.running"
+            @click="fetchToday"
           >
-            <template #prefix>
-              <n-icon size="24" class="icon-muted">
-                <CalendarOutline />
+            <template #icon>
+              <n-icon>
+                <RefreshOutline />
               </n-icon>
             </template>
-            <div class="date-item-main">
-              <div class="date-item-head">
-                <div class="date-title-group">
-                  <span class="date-title">{{ entry.date }}</span>
-                  <span v-if="entry.date === store.dateList.latest" class="latest-badge">{{ latestLabel }}</span>
-                </div>
-                <div class="article-total">
-                  <n-icon size="16">
-                    <DocumentTextOutline />
-                  </n-icon>
-                  <span>{{ entry.total }} {{ articlesLabel }}</span>
-                </div>
-              </div>
-              <div class="category-tags">
-                <n-tag
-                  v-for="[category, count] in categoryEntries(entry)"
-                  :key="category"
-                  :type="categoryTagType(category)"
-                  size="small"
-                  round
-                  :bordered="false"
-                >
-                  {{ categoryLabels[category] ?? category }} {{ count }}
-                </n-tag>
-              </div>
-            </div>
-            <template #suffix>
-              <n-icon size="20" class="icon-muted">
-                <ChevronForward />
-              </n-icon>
-            </template>
-          </n-list-item>
-        </n-list>
+            {{ pipelineButtonLabel }}
+          </n-button>
+
+          <router-link
+            v-if="store.dateList.latest"
+            :to="{ name: 'digest', params: { date: store.dateList.latest } }"
+            class="secondary-link"
+          >
+            <span>{{ copy.home.latest }}</span>
+            <n-icon>
+              <ChevronForward />
+            </n-icon>
+          </router-link>
+        </div>
       </div>
 
-      <n-empty v-else-if="!store.loading" :description="emptyLabel" class="animate-fade-up delay-2" />
-    </n-spin>
+      <aside class="paper-panel status-panel animate-fade-up delay-1">
+        <div class="status-panel__top">
+          <p class="eyebrow">{{ copy.home.progressTitle }}</p>
+          <span class="soft-pill" :class="{ 'soft-pill--live': store.pipelineStatus.running }">
+            <span class="status-dot" :class="{ 'status-dot--live': store.pipelineStatus.running }"></span>
+            {{ progressStageLabel }}
+          </span>
+        </div>
+
+        <p class="status-note">
+          {{ statusNote }}
+        </p>
+
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
+        </div>
+
+        <div v-if="progressStats.length > 0" class="status-metrics">
+          <div v-for="item in progressStats" :key="item.key" class="status-metric">
+            <span class="status-metric__label">{{ item.label }}</span>
+            <span class="status-metric__value">{{ item.value }}</span>
+          </div>
+        </div>
+
+        <div v-else class="status-placeholder">
+          <div class="status-placeholder__label">{{ copy.home.progressTitle }}</div>
+          <div class="status-placeholder__value">{{ copy.home.progressIdle }}</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="paper-panel archive-panel animate-fade-up delay-2">
+      <div class="archive-panel__header">
+        <div>
+          <p class="eyebrow">{{ copy.home.pageTitle }}</p>
+          <h2 class="section-title">{{ copy.home.latest }}</h2>
+        </div>
+        <div class="soft-pill archive-note">
+          <n-icon size="16">
+            <CalendarOutline />
+          </n-icon>
+          <span>{{ store.dateList.latest ? formatDate(store.dateList.latest) : copy.home.empty }}</span>
+        </div>
+      </div>
+
+      <n-spin :show="store.loading">
+        <div v-if="store.dateList.dates.length > 0" class="archive-list">
+          <button
+            v-for="(entry, index) in store.dateList.dates"
+            :key="entry.date"
+            type="button"
+            class="archive-row animate-fade-up"
+            :style="{ animationDelay: `${Math.min(index * 50, 360) + 140}ms` }"
+            @click="goToDigest(entry.date)"
+          >
+            <div class="archive-row__meta">
+              <div class="archive-row__heading">
+                <span class="archive-row__date">{{ formatDate(entry.date) }}</span>
+                <span v-if="entry.date === store.dateList.latest" class="archive-row__badge">
+                  {{ copy.home.latest }}
+                </span>
+              </div>
+              <div class="chip-row">
+                <span
+                  v-for="[category, count] in categoryEntries(entry)"
+                  :key="category"
+                  class="soft-pill archive-chip"
+                >
+                  <span>{{ categoryLabelMap[category] ?? category }}</span>
+                  <strong>{{ count }}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div class="archive-row__side">
+              <span class="archive-row__count">{{ entry.total }}</span>
+              <span class="archive-row__label">{{ copy.home.articles }}</span>
+              <n-icon class="archive-row__icon">
+                <ChevronForward />
+              </n-icon>
+            </div>
+          </button>
+        </div>
+
+        <div v-else class="empty-panel">
+          <n-empty :description="copy.home.empty" />
+        </div>
+      </n-spin>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .home-view {
-  max-width: 860px;
-  margin: 0 auto;
+  display: grid;
+  gap: 28px;
 }
 
-.view-header {
-  margin-bottom: 40px;
-  text-align: center;
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
+  gap: 24px;
 }
 
-h2 {
-  font-family: var(--font-serif);
-  font-size: 36px;
-  font-weight: 500;
-  margin-bottom: 12px;
-  color: var(--n-text-color);
-  letter-spacing: -0.02em;
+.hero-copy,
+.status-panel,
+.archive-panel {
+  padding: 32px;
 }
 
-p {
-  color: var(--n-text-color-3);
-  font-size: 16px;
+.hero-copy {
+  display: grid;
+  gap: 28px;
 }
 
-.date-list {
-  background-color: var(--n-card-color);
-  border-radius: 16px;
-  border: 1px solid var(--n-border-color);
-  overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: all 0.3s ease;
-  margin-top: 16px;
+.hero-metrics {
+  margin-top: 4px;
 }
 
-.is-dark .date-list {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-:deep(.n-list) {
-  --n-border-color: transparent !important;
-  background-color: transparent;
-}
-
-:deep(.n-list-item) {
-  padding: 20px 24px !important;
-  border-bottom: 1px solid var(--n-border-color) !important;
-}
-
-:deep(.n-list-item:last-child) {
-  border-bottom: none !important;
-}
-
-.date-item-main {
+.hero-actions {
   display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
 }
 
-.date-item-head {
+.primary-action {
+  min-width: 198px;
+}
+
+.secondary-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(73, 58, 45, 0.1);
+  background: rgba(255, 252, 247, 0.78);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.status-panel {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.status-panel__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-}
-
-.date-title-group {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  min-width: 0;
 }
 
-.date-title {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 500;
-  color: var(--n-text-color);
+.soft-pill--live {
+  color: var(--ink-strong);
+  border-color: rgba(127, 102, 83, 0.18);
+  background: rgba(127, 102, 83, 0.08);
 }
 
-.latest-badge {
-  padding: 2px 10px;
+.status-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  background: var(--n-primary-color);
-  opacity: 0.85;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
+  background: rgba(127, 102, 83, 0.2);
 }
 
-.article-total {
+.status-dot--live {
+  background: var(--accent);
+  box-shadow: 0 0 0 6px rgba(127, 102, 83, 0.08);
+}
+
+.status-note {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--ink);
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(127, 102, 83, 0.1);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #76604f, #9b826e);
+  transition: width 0.35s ease;
+}
+
+.status-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.status-metric,
+.status-placeholder {
+  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(73, 58, 45, 0.08);
+  background: rgba(255, 252, 247, 0.68);
+}
+
+.status-metric__label,
+.status-placeholder__label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-metric__value,
+.status-placeholder__value {
+  color: var(--ink-strong);
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.archive-panel {
+  display: grid;
+  gap: 24px;
+}
+
+.archive-panel__header {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--n-text-color-2);
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.archive-note {
   white-space: nowrap;
 }
 
-.icon-muted {
-  color: var(--n-text-color-3);
+.archive-list {
+  display: grid;
+  gap: 14px;
 }
 
-.category-tags {
+.archive-row {
+  width: 100%;
+  padding: 20px 22px;
+  border: 1px solid rgba(73, 58, 45, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 253, 248, 0.72);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.archive-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(73, 58, 45, 0.14);
+  box-shadow: var(--shadow-card);
+}
+
+.archive-row__meta {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.archive-row__heading {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
-@media (max-width: 640px) {
-  .date-item-head {
-    flex-direction: column;
-    align-items: flex-start;
+.archive-row__date {
+  color: var(--ink-strong);
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.archive-row__badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(127, 102, 83, 0.08);
+  border: 1px solid rgba(127, 102, 83, 0.12);
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.archive-chip strong {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+
+.archive-row__side {
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: 4px;
+  min-width: 78px;
+}
+
+.archive-row__count {
+  color: var(--ink-strong);
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.archive-row__label {
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.archive-row__icon {
+  color: var(--ink-faint);
+}
+
+.empty-panel {
+  padding: 30px 0 10px;
+}
+
+@media (max-width: 980px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .hero-copy,
+  .status-panel,
+  .archive-panel {
+    padding: 22px;
+  }
+
+  .archive-panel__header,
+  .archive-row {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-row__side {
+    justify-items: start;
+  }
+
+  .status-metrics {
+    grid-template-columns: 1fr;
   }
 }
 </style>

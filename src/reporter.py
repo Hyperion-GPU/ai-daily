@@ -14,19 +14,45 @@ def _article_id(url: str) -> str:
     return hashlib.md5(url.encode()).hexdigest()[:6]
 
 
-def generate_report(articles: list[dict], config: dict) -> Path:
+def _write_index(index_path: Path, date_str: str, total: int, by_category: dict[str, int]) -> None:
+    existing: list[dict] = []
+    if index_path.exists():
+        try:
+            with open(index_path, encoding='utf-8') as f:
+                payload = json.load(f)
+            if isinstance(payload, list):
+                existing = [entry for entry in payload if isinstance(entry, dict)]
+        except (OSError, json.JSONDecodeError):
+            logger.warning(f'Failed to read existing digest index at {index_path}, rebuilding it.')
+
+    existing = [entry for entry in existing if entry.get('date') != date_str]
+    existing.append(
+        {
+            'date': date_str,
+            'total': total,
+            'by_category': by_category,
+        }
+    )
+    existing.sort(key=lambda entry: entry.get('date', ''), reverse=True)
+
+    with open(index_path, 'w', encoding='utf-8') as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+    logger.info(f'Digest index saved to {index_path}')
+
+
+def generate_report(articles: list[dict], config: dict, generated_at=None) -> Path:
     """Generate both Markdown and JSON reports."""
     out_dir = PROJECT_ROOT / config.get('outputs', {}).get('output_dir', 'output')
     out_dir.mkdir(exist_ok=True)
 
-    generated_at = now_in_config_timezone(config)
+    generated_at = generated_at or now_in_config_timezone(config)
     date_str = generated_at.strftime('%Y-%m-%d')
     md_path = out_dir / config.get('outputs', {}).get('report_filename', '{date}.md').replace('{date}', date_str)
     json_path = out_dir / f'{date_str}.json'
+    index_path = out_dir / 'index.json'
 
     articles_sorted = sorted(articles, key=lambda a: a.get('importance', 0), reverse=True)
-    for article in articles_sorted:
-        article['id'] = _article_id(article['url'])
+    articles_with_ids = [{**article, 'id': _article_id(article['url'])} for article in articles_sorted]
 
     by_category = dict(Counter(a['source_category'] for a in articles_sorted))
     by_tag = dict(Counter(t for a in articles_sorted for t in a.get('tags', [])))
@@ -39,12 +65,13 @@ def generate_report(articles: list[dict], config: dict) -> Path:
             'by_category': by_category,
             'by_tag': by_tag,
         },
-        'articles': articles_sorted,
+        'articles': articles_with_ids,
     }
 
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(json_data, f, ensure_ascii=False, indent=2)
     logger.info(f'JSON report saved to {json_path}')
+    _write_index(index_path, date_str, len(articles_sorted), by_category)
 
     lines = [f'# AI Daily - {date_str}', '']
 

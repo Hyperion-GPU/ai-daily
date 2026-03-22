@@ -1,7 +1,12 @@
 import json
 import logging
+from types import SimpleNamespace
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock
 
+import pytest
+
+from src import fetcher as fetcher_module
 from src.fetcher import FeedFetcher
 
 
@@ -63,3 +68,71 @@ def test_load_state_migrates_legacy_list(tmp_path):
 
     assert set(fetcher.seen_urls.keys()) == {"https://example.com/a", "https://example.com/b"}
     assert all(value for value in fetcher.seen_urls.values())
+
+
+@pytest.mark.anyio
+async def test_fetch_feed_filters_seen_old_and_prefiltered_entries(monkeypatch):
+    fetcher = make_fetcher()
+    now = datetime.now(timezone.utc)
+    fetcher.seen_urls = {"https://example.com/seen": now.isoformat()}
+    fetcher._enrich_articles_with_full_text = AsyncMock()
+
+    class FeedEntry(dict):
+        __getattr__ = dict.get
+
+    entries = [
+        FeedEntry(
+            link="https://example.com/fresh",
+            title="Agent release",
+            published=(now - timedelta(hours=2)).isoformat(),
+            summary="<p>Fresh agent summary</p>",
+            content=[{"value": "<div>Full content</div>"}],
+        ),
+        FeedEntry(
+            link="https://example.com/old",
+            title="Agent history",
+            published=(now - timedelta(hours=80)).isoformat(),
+            summary="Old item",
+        ),
+        FeedEntry(
+            link="https://example.com/seen",
+            title="Seen item",
+            published=(now - timedelta(hours=1)).isoformat(),
+            summary="Seen item",
+        ),
+        FeedEntry(
+            link="https://example.com/vision",
+            title="Vision release",
+            published=(now - timedelta(hours=1)).isoformat(),
+            summary="Not matched",
+        ),
+    ]
+
+    monkeypatch.setattr(fetcher_module.feedparser, "parse", lambda _: SimpleNamespace(entries=entries))
+
+    class FakeResponse:
+        text = "<rss />"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        async def get(self, url, timeout, follow_redirects):
+            return FakeResponse()
+
+    articles, new_urls = await fetcher.fetch_feed(
+        FakeClient(),
+        {
+            "url": "https://example.com/feed.xml",
+            "name": "Example Feed",
+            "category": "news",
+            "pre_filter": True,
+            "keywords": "agent",
+        },
+    )
+
+    assert [article.url for article in articles] == ["https://example.com/fresh"]
+    assert articles[0].summary == "Fresh agent summary"
+    assert articles[0].content == "Full content"
+    assert new_urls == {"https://example.com/fresh"}
+    fetcher._enrich_articles_with_full_text.assert_awaited_once()

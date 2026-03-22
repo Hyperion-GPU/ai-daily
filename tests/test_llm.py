@@ -24,6 +24,15 @@ def test_call_stage1_parses_valid_json_and_deduplicates():
     assert result == ["https://a", "https://b"]
 
 
+def test_call_stage1_accepts_fenced_json_output():
+    client = make_client()
+    client._call = AsyncMock(return_value='```json\n["https://a"]\n```')
+
+    result = asyncio.run(client.call_stage1("prompt"))
+
+    assert result == ["https://a"]
+
+
 def test_call_stage1_returns_empty_on_invalid_shapes():
     client = make_client()
     client._call = AsyncMock(return_value='{"url": "https://a"}')
@@ -50,4 +59,13 @@ def test_call_stage2_returns_none_on_invalid_payload():
     assert asyncio.run(client.call_stage2("prompt")) is None
 
     client._call = AsyncMock(return_value="not json")
+    assert asyncio.run(client.call_stage2("prompt")) is None
+
+
+def test_call_stage2_rejects_blank_summary_even_when_json_is_valid():
+    client = make_client()
+    client._call = AsyncMock(
+        return_value='```json\n{"summary_zh":"   ","tags":["AI"],"importance":3}\n```'
+    )
+
     assert asyncio.run(client.call_stage2("prompt")) is None

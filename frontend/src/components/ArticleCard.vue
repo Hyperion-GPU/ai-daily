@@ -1,218 +1,215 @@
 <script setup lang="ts">
-import { NButton, NCard, NIcon, NRate, NSpace } from 'naive-ui';
+import { computed } from 'vue';
+import { NIcon } from 'naive-ui';
 import { OpenOutline, TimeOutline } from '@vicons/ionicons5';
 import dayjs from 'dayjs';
+import { useLocale } from '../composables/useLocale';
 import type { Article } from '../types';
 
-defineProps<{
+const props = defineProps<{
   article: Article;
 }>();
 
-const categoryColors: Record<string, string> = {
-  arxiv: '#cc7b5d',
-  news: '#6b8e6b',
-  official: '#d4aa50',
-  community: '#827397',
-};
+const { copy } = useLocale();
+
+const categoryLabels = computed<Record<string, string>>(() => ({
+  arxiv: copy.value.categories.arxiv,
+  news: copy.value.categories.news,
+  official: copy.value.categories.official,
+  community: copy.value.categories.community,
+}));
+
+const importanceDots = computed(() =>
+  Array.from({ length: 5 }, (_, index) => index < props.article.importance),
+);
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
 </script>
 
 <template>
-  <n-card class="article-card animate-fade-up" hoverable :bordered="false">
-    <div class="card-content">
-      <div class="card-header">
-        <div class="category-overline" :style="{ color: categoryColors[article.source_category] }">
-          {{ article.source_category.toUpperCase() }}
-        </div>
-        <div class="title-row">
-          <a :href="article.url" target="_blank" class="title-link">
-            {{ article.title }}
-          </a>
-          <n-rate readonly :default-value="article.importance" size="small" :color="'#d4aa50'" class="rate-stars" />
-        </div>
-        <div class="meta-row">
-          <span class="source-name">{{ article.source_name }}</span>
-          <span class="meta-divider">&middot;</span>
-          <span class="publish-time">
-            <n-icon><TimeOutline /></n-icon>
-            {{ formatDate(article.published) }}
-          </span>
-        </div>
+  <article class="article-card">
+    <div class="article-card__header">
+      <div class="article-card__eyebrow">
+        <span class="article-card__category">
+          {{ categoryLabels[article.source_category] ?? article.source_category }}
+        </span>
+        <span class="article-card__divider"></span>
+        <span class="article-card__source">{{ article.source_name }}</span>
       </div>
 
-      <p class="summary">{{ article.summary_zh }}</p>
-
-      <div class="card-footer">
-        <n-space size="small" class="tags-space">
-          <span v-for="tag in article.tags" :key="tag" class="text-tag">#{{ tag }}</span>
-        </n-space>
-
-        <n-button text tag="a" :href="article.url" target="_blank" class="read-more">
-          Read source
-          <template #icon>
-            <n-icon><OpenOutline /></n-icon>
-          </template>
-        </n-button>
+      <div class="article-card__importance" :aria-label="`${copy.digest.importance}: ${article.importance}/5`">
+        <span
+          v-for="(filled, index) in importanceDots"
+          :key="index"
+          class="article-card__dot"
+          :class="{ 'article-card__dot--filled': filled }"
+        ></span>
+        <span class="article-card__importance-label">{{ article.importance }}/5</span>
       </div>
     </div>
-  </n-card>
+
+    <a :href="article.url" target="_blank" rel="noopener noreferrer" class="article-card__title">
+      {{ article.title }}
+    </a>
+
+    <p class="article-card__summary">{{ article.summary_zh }}</p>
+
+    <div class="article-card__footer">
+      <div class="article-card__meta">
+        <span class="soft-pill">
+          <n-icon size="14">
+            <TimeOutline />
+          </n-icon>
+          {{ formatDate(article.published) }}
+        </span>
+
+        <span v-for="tag in article.tags" :key="tag" class="soft-pill article-card__tag">
+          #{{ tag }}
+        </span>
+      </div>
+
+      <a :href="article.url" target="_blank" rel="noopener noreferrer" class="article-card__link">
+        {{ copy.article.readSource }}
+        <n-icon size="14">
+          <OpenOutline />
+        </n-icon>
+      </a>
+    </div>
+  </article>
 </template>
 
 <style scoped>
 .article-card {
-  margin-bottom: 24px;
-  background-color: var(--n-card-color);
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03), 0 1px 4px rgba(0, 0, 0, 0.02);
-  transition:
-    transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-  border: 1px solid var(--n-border-color);
-}
-
-.is-dark .article-card {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 1px 4px rgba(0, 0, 0, 0.1);
-}
-
-:deep(.n-card__content) {
-  padding: 32px !important;
+  padding: 26px 28px;
+  border-radius: 26px;
+  border: 1px solid rgba(73, 58, 45, 0.1);
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(250, 244, 235, 0.76));
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 18px;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .article-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.03);
-  border-color: var(--n-primary-color);
+  transform: translateY(-1px);
+  border-color: rgba(73, 58, 45, 0.16);
+  box-shadow: var(--shadow-soft);
 }
 
-.is-dark .article-card:hover {
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.card-header {
-  margin-bottom: 16px;
-}
-
-.category-overline {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
-}
-
-.title-row {
+.article-card__header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 14px;
 }
 
-.title-link {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--n-text-color);
-  text-decoration: none;
-  line-height: 1.35;
-  transition: color 0.2s;
-  letter-spacing: -0.01em;
-}
-
-.title-link:hover {
-  color: var(--n-primary-color);
-}
-
-.rate-stars {
-  flex-shrink: 0;
-  margin-top: 6px;
-}
-
-.meta-row {
+.article-card__eyebrow {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.article-card__category {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.article-card__divider {
+  width: 18px;
+  height: 1px;
+  background: rgba(73, 58, 45, 0.18);
+}
+
+.article-card__importance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.article-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(127, 102, 83, 0.16);
+}
+
+.article-card__dot--filled {
+  background: var(--accent);
+}
+
+.article-card__importance-label {
+  margin-left: 4px;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+}
+
+.article-card__title {
+  color: var(--ink-strong);
+  text-decoration: none;
+  font-family: var(--font-serif);
+  font-size: clamp(1.55rem, 2vw, 2.2rem);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.article-card__title:hover {
+  color: var(--accent);
+}
+
+.article-card__summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.9;
+}
+
+.article-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(73, 58, 45, 0.08);
+}
+
+.article-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.article-card__tag {
+  color: var(--ink-soft);
+}
+
+.article-card__link {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
-  color: var(--n-text-color-3);
+  color: var(--ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.source-name {
-  color: var(--n-text-color-2);
-  font-weight: 500;
+.article-card__link:hover {
+  color: var(--ink-strong);
 }
 
-.meta-divider {
-  color: var(--n-border-color);
-  font-weight: bold;
-}
-
-.publish-time {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.summary {
-  font-size: 16px;
-  color: var(--n-text-color-2);
-  line-height: 1.7;
-  margin: 20px 0;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--n-border-color);
-  gap: 16px;
-}
-
-.tags-space {
-  margin-right: auto;
-}
-
-.text-tag {
-  font-size: 13px;
-  color: var(--n-text-color-3);
-  background-color: transparent;
-  padding: 2px 0;
-  transition: color 0.2s;
-}
-
-.text-tag:hover {
-  color: var(--n-text-color-2);
-}
-
-.read-more {
-  color: var(--n-text-color-3);
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.read-more:hover {
-  color: var(--n-primary-color);
-}
-
-@media (max-width: 640px) {
-  :deep(.n-card__content) {
-    padding: 20px !important;
+@media (max-width: 680px) {
+  .article-card {
+    padding: 22px;
   }
 
-  .title-link {
-    font-size: 20px;
-  }
-
-  .title-row {
-    flex-direction: column;
-  }
-
-  .card-footer {
+  .article-card__header,
+  .article-card__footer {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
   }
 }
 </style>

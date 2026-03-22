@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
-import DigestView from '../views/DigestView.vue';
+
+const HomeView = () => import('../views/HomeView.vue');
+const DigestView = () => import('../views/DigestView.vue');
+const GithubTrendingView = () => import('../views/GithubTrendingView.vue');
 
 const router = createRouter({
   history: createWebHistory(),
@@ -14,6 +16,17 @@ const router = createRouter({
       path: '/digest/:date',
       name: 'digest',
       component: DigestView,
+      props: true,
+    },
+    {
+      path: '/github',
+      name: 'github_trending_latest',
+      component: GithubTrendingView,
+    },
+    {
+      path: '/github/:date',
+      name: 'github_trending_date',
+      component: GithubTrendingView,
       props: true,
     },
   ],

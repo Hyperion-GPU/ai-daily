@@ -34,6 +34,35 @@ outputs:
   report_filename: "{date}.md"
   log_filename: "{date}.log"
 
+github_trending:
+  enabled: true
+  token_env: "GITHUB_TOKEN"
+  min_stars: 500
+  max_projects_per_day: 50
+  fetch_interval_hours: 12
+  per_topic_limit: 100
+  topics:
+    - artificial-intelligence
+    - machine-learning
+    - deep-learning
+    - llm
+    - large-language-model
+    - natural-language-processing
+    - computer-vision
+    - diffusion-model
+    - generative-ai
+    - ai-agent
+    - transformers
+    - mlops
+  category_map:
+    llm: ["llm", "large-language-model", "chatgpt", "gpt", "langchain"]
+    agent: ["ai-agent", "autonomous-agent", "agent"]
+    cv: ["computer-vision", "image-generation", "diffusion-model"]
+    nlp: ["natural-language-processing", "text-generation"]
+    ml_framework: ["machine-learning", "deep-learning", "transformers"]
+    mlops: ["mlops", "model-serving", "inference"]
+    general: ["artificial-intelligence", "generative-ai"]
+
 feeds:
   # Research / papers
   - name: "Arxiv cs.AI"

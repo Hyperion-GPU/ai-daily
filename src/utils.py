@@ -1,12 +1,15 @@
 import logging
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any, TypeVar
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 logger = logging.getLogger("aidaily")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+T = TypeVar("T")
 
 
 def get_config_timezone(config: dict):
@@ -72,3 +75,28 @@ def truncate_text(text: str, max_chars: int = 500) -> str:
     if text and len(text) > max_chars:
         return text[:max_chars] + "..."
     return text or ""
+
+
+def split_by_ratio(
+    items: list[T],
+    ratio: float,
+    max_count: int,
+    is_primary: Callable[[T], bool],
+    sort_key: Callable[[T], Any] | None = None,
+    reverse: bool = False,
+) -> list[T]:
+    """Keep a ratio of primary items while preserving current selection semantics."""
+    if max_count <= 0 or not items:
+        return []
+
+    ratio = max(0.0, min(1.0, ratio))
+    primary = [item for item in items if is_primary(item)]
+    secondary = [item for item in items if not is_primary(item)]
+
+    if sort_key is not None:
+        primary = sorted(primary, key=sort_key, reverse=reverse)
+        secondary = sorted(secondary, key=sort_key, reverse=reverse)
+
+    primary_slots = min(len(primary), int(max_count * ratio))
+    secondary_slots = max_count - primary_slots
+    return primary[:primary_slots] + secondary[:secondary_slots]

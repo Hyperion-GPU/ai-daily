@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -20,7 +20,16 @@ if FRONTEND_DIST.exists():
     def serve_favicon():
         return FileResponse(FRONTEND_DIST / "vite.svg")
 
-    @app.get("/{full_path:path}")
+    @app.get("/{full_path:path}", include_in_schema=False)
     def serve_spa(full_path: str):
         """所有非 /api 路径都返回 index.html，交给 Vue Router 处理"""
-        return FileResponse(FRONTEND_DIST / "index.html")
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(
+            FRONTEND_DIST / "index.html",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )

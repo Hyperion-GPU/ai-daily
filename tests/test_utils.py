@@ -1,4 +1,4 @@
-from src.utils import clean_html_tags, truncate_text
+from src.utils import clean_html_tags, split_by_ratio, truncate_text
 
 
 def test_clean_html_tags_handles_nested_tags_and_entities():
@@ -21,3 +21,35 @@ def test_truncate_text_handles_empty_values():
     assert truncate_text("", 5) == ""
     assert truncate_text(None, 5) == ""
 
+
+def test_split_by_ratio_keeps_primary_share():
+    items = [
+        {"id": "n1", "kind": "news", "score": 2},
+        {"id": "a1", "kind": "arxiv", "score": 5},
+        {"id": "n2", "kind": "news", "score": 1},
+        {"id": "a2", "kind": "arxiv", "score": 4},
+    ]
+
+    result = split_by_ratio(items, 0.5, 4, is_primary=lambda item: item["kind"] != "arxiv")
+
+    assert [item["id"] for item in result] == ["n1", "n2", "a1", "a2"]
+
+
+def test_split_by_ratio_sorts_each_bucket_when_requested():
+    items = [
+        {"id": "a-low", "kind": "arxiv", "score": 1},
+        {"id": "n-low", "kind": "news", "score": 2},
+        {"id": "a-high", "kind": "arxiv", "score": 5},
+        {"id": "n-high", "kind": "news", "score": 4},
+    ]
+
+    result = split_by_ratio(
+        items,
+        0.5,
+        4,
+        is_primary=lambda item: item["kind"] != "arxiv",
+        sort_key=lambda item: item["score"],
+        reverse=True,
+    )
+
+    assert [item["id"] for item in result] == ["n-high", "n-low", "a-high", "a-low"]
