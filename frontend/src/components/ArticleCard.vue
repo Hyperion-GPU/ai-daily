@@ -80,19 +80,18 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
 
 <style scoped>
 .article-card {
-  padding: 26px 28px;
-  border-radius: 26px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(250, 244, 235, 0.76));
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--paper-elevated);
   box-shadow: var(--shadow-card);
   display: grid;
-  gap: 18px;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  gap: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .article-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(73, 58, 45, 0.16);
+  border-color: rgba(0, 0, 0, 0.14);
   box-shadow: var(--shadow-soft);
 }
 
@@ -120,9 +119,9 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
 }
 
 .article-card__divider {
-  width: 18px;
+  width: 16px;
   height: 1px;
-  background: rgba(73, 58, 45, 0.18);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .article-card__importance {
@@ -133,10 +132,10 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
 }
 
 .article-card__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: rgba(127, 102, 83, 0.16);
+  background: rgba(0, 0, 0, 0.10);
 }
 
 .article-card__dot--filled {
@@ -153,7 +152,7 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
   color: var(--ink-strong);
   text-decoration: none;
   font-family: var(--font-serif);
-  font-size: clamp(1.55rem, 2vw, 2.2rem);
+  font-size: clamp(1.35rem, 1.8vw, 1.85rem);
   line-height: 1.2;
   letter-spacing: -0.03em;
 }
@@ -174,8 +173,8 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(73, 58, 45, 0.08);
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .article-card__meta {
@@ -203,7 +202,7 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
 
 @media (max-width: 680px) {
   .article-card {
-    padding: 22px;
+    padding: 20px;
   }
 
   .article-card__header,

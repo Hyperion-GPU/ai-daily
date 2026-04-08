@@ -399,7 +399,7 @@ const goBack = () => {
 .filter-rail,
 .results-summary,
 .empty-panel {
-  padding: 30px;
+  padding: 24px;
 }
 
 .digest-hero {
@@ -458,7 +458,7 @@ const goBack = () => {
 }
 
 .request-alert {
-  border-radius: 18px;
+  border-radius: var(--radius-md);
 }
 
 .results-summary {
@@ -468,7 +468,7 @@ const goBack = () => {
 
 .article-stack {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .empty-panel {
@@ -491,7 +491,7 @@ const goBack = () => {
   .filter-rail,
   .results-summary,
   .empty-panel {
-    padding: 22px;
+    padding: 20px;
   }
 }
 </style>

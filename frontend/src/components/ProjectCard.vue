@@ -80,19 +80,18 @@ const timeAgo = computed(() => {
 
 <style scoped>
 .project-card {
-  padding: 26px 28px;
-  border-radius: 26px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(250, 244, 235, 0.76));
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--paper-elevated);
   box-shadow: var(--shadow-card);
   display: grid;
-  gap: 18px;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  gap: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .project-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(73, 58, 45, 0.16);
+  border-color: rgba(0, 0, 0, 0.14);
   box-shadow: var(--shadow-soft);
 }
 
@@ -120,7 +119,7 @@ const timeAgo = computed(() => {
   color: var(--ink-strong);
   text-decoration: none;
   font-family: var(--font-serif);
-  font-size: clamp(1.45rem, 2vw, 2rem);
+  font-size: clamp(1.3rem, 1.8vw, 1.75rem);
   line-height: 1.18;
   letter-spacing: -0.03em;
 }
@@ -135,8 +134,8 @@ const timeAgo = computed(() => {
   justify-content: center;
   padding: 10px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: rgba(255, 252, 247, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--paper-surface);
   color: var(--ink-soft);
   text-decoration: none;
   white-space: nowrap;
@@ -160,8 +159,8 @@ const timeAgo = computed(() => {
 .project-card__footer {
   display: grid;
   gap: 14px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(73, 58, 45, 0.08);
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .project-card__meta,
@@ -177,7 +176,7 @@ const timeAgo = computed(() => {
 
 @media (max-width: 680px) {
   .project-card {
-    padding: 22px;
+    padding: 20px;
   }
 
   .project-card__header {

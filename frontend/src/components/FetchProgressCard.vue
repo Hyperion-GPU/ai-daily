@@ -98,9 +98,9 @@ const progressItems = computed(() =>
 
 <style scoped>
 .progress-card {
-  padding: 28px 30px;
+  padding: 24px;
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .progress-card__header {
@@ -111,27 +111,27 @@ const progressItems = computed(() =>
 }
 
 .progress-card__pill--error {
-  color: #7d5148;
-  background: rgba(155, 91, 82, 0.08);
+  color: var(--danger);
+  background: rgba(194, 86, 80, 0.06);
 }
 
 .progress-card__track {
   width: 100%;
-  height: 10px;
+  height: 6px;
   border-radius: 999px;
-  background: rgba(127, 102, 83, 0.1);
+  background: rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
 
 .progress-card__fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #76604f, #9b826e);
+  background: var(--accent);
   transition: width 0.35s ease;
 }
 
 .progress-card__fill--error {
-  background: linear-gradient(90deg, #8b5b53, #a36d63);
+  background: var(--danger);
 }
 
 .progress-card__metrics {
@@ -141,10 +141,10 @@ const progressItems = computed(() =>
 }
 
 .progress-card__metric {
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(73, 58, 45, 0.08);
-  background: rgba(255, 252, 247, 0.72);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--paper-surface);
 }
 
 .progress-card__metric-label {
@@ -165,7 +165,7 @@ const progressItems = computed(() =>
 
 @media (max-width: 640px) {
   .progress-card {
-    padding: 22px;
+    padding: 20px;
   }
 
   .progress-card__header {

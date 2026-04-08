@@ -23,6 +23,6 @@ const props = defineProps<{
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: rgba(127, 102, 83, 0.45);
+  background: rgba(0, 0, 0, 0.30);
 }
 </style>

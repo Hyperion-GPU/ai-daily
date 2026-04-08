@@ -52,10 +52,10 @@ const items = computed(() => [
 }
 
 .stats-bar__item {
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(73, 58, 45, 0.08);
-  background: rgba(255, 252, 247, 0.72);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--paper-surface);
 }
 
 .stats-bar__value {

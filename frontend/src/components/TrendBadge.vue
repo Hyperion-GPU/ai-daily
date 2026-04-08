@@ -29,8 +29,8 @@ const label = computed(() => {
   justify-content: center;
   padding: 7px 11px;
   border-radius: 999px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: rgba(255, 252, 246, 0.82);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--paper-surface);
   color: var(--ink-soft);
   font-size: 0.74rem;
   font-weight: 600;
@@ -39,12 +39,14 @@ const label = computed(() => {
 }
 
 .trend-badge--hot {
-  color: #7d5148;
-  background: rgba(155, 91, 82, 0.08);
+  color: #c25650;
+  background: rgba(194, 86, 80, 0.06);
+  border-color: rgba(194, 86, 80, 0.15);
 }
 
 .trend-badge--rising {
-  color: #7f6653;
-  background: rgba(127, 102, 83, 0.08);
+  color: var(--accent);
+  background: rgba(217, 119, 87, 0.06);
+  border-color: rgba(217, 119, 87, 0.15);
 }
 </style>

@@ -355,12 +355,12 @@ const goToDigest = (date: string) => {
 .hero-copy,
 .status-panel,
 .archive-panel {
-  padding: 32px;
+  padding: 28px;
 }
 
 .hero-copy {
   display: grid;
-  gap: 28px;
+  gap: 24px;
 }
 
 .hero-metrics {
@@ -384,8 +384,8 @@ const goToDigest = (date: string) => {
   gap: 8px;
   padding: 13px 18px;
   border-radius: 999px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: rgba(255, 252, 247, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--paper-surface);
   text-decoration: none;
   color: var(--ink);
 }
@@ -393,7 +393,7 @@ const goToDigest = (date: string) => {
 .status-panel {
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 16px;
 }
 
 .status-panel__top {
@@ -405,20 +405,20 @@ const goToDigest = (date: string) => {
 
 .soft-pill--live {
   color: var(--ink-strong);
-  border-color: rgba(127, 102, 83, 0.18);
-  background: rgba(127, 102, 83, 0.08);
+  border-color: rgba(217, 119, 87, 0.2);
+  background: rgba(217, 119, 87, 0.06);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: rgba(127, 102, 83, 0.2);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .status-dot--live {
   background: var(--accent);
-  box-shadow: 0 0 0 6px rgba(127, 102, 83, 0.08);
+  box-shadow: 0 0 0 4px rgba(217, 119, 87, 0.1);
 }
 
 .status-note {
@@ -430,16 +430,16 @@ const goToDigest = (date: string) => {
 
 .progress-track {
   width: 100%;
-  height: 10px;
+  height: 6px;
   border-radius: 999px;
-  background: rgba(127, 102, 83, 0.1);
+  background: rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #76604f, #9b826e);
+  background: var(--accent);
   transition: width 0.35s ease;
 }
 
@@ -451,10 +451,10 @@ const goToDigest = (date: string) => {
 
 .status-metric,
 .status-placeholder {
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(73, 58, 45, 0.08);
-  background: rgba(255, 252, 247, 0.68);
+  border: 1px solid var(--line);
+  background: var(--paper-surface);
 }
 
 .status-metric__label,
@@ -493,27 +493,26 @@ const goToDigest = (date: string) => {
 
 .archive-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .archive-row {
   width: 100%;
-  padding: 20px 22px;
-  border: 1px solid rgba(73, 58, 45, 0.08);
-  border-radius: 22px;
-  background: rgba(255, 253, 248, 0.72);
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper-surface);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .archive-row:hover {
-  transform: translateY(-1px);
-  border-color: rgba(73, 58, 45, 0.14);
-  box-shadow: var(--shadow-card);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-soft);
 }
 
 .archive-row__meta {
@@ -539,8 +538,8 @@ const goToDigest = (date: string) => {
 .archive-row__badge {
   padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(127, 102, 83, 0.08);
-  border: 1px solid rgba(127, 102, 83, 0.12);
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   color: var(--ink-soft);
   font-size: 0.76rem;
   letter-spacing: 0.08em;
@@ -592,7 +591,7 @@ const goToDigest = (date: string) => {
   .hero-copy,
   .status-panel,
   .archive-panel {
-    padding: 22px;
+    padding: 20px;
   }
 
   .archive-panel__header,

@@ -434,7 +434,7 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
 .filters-panel,
 .results-summary,
 .empty-panel {
-  padding: 30px;
+  padding: 24px;
 }
 
 .github-hero {
@@ -475,8 +475,8 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
   justify-content: center;
   padding: 9px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: rgba(255, 252, 247, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--paper-surface);
   text-decoration: none;
   color: var(--ink-soft);
   font-size: 0.88rem;
@@ -485,7 +485,7 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
 .date-link--active,
 .date-link:hover {
   color: var(--ink-strong);
-  background: rgba(127, 102, 83, 0.1);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .github-layout {
@@ -536,25 +536,25 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
   width: 100%;
   min-width: 0;
   padding: 11px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(73, 58, 45, 0.12);
-  background: rgba(255, 252, 247, 0.78);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--paper-surface);
   color: var(--ink-soft);
   font: inherit;
   line-height: 1.25;
   text-align: center;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .filter-option:hover {
   color: var(--ink-strong);
-  border-color: rgba(73, 58, 45, 0.2);
+  border-color: rgba(0, 0, 0, 0.14);
 }
 
 .filter-option--active {
-  background: rgba(127, 102, 83, 0.1);
-  border-color: rgba(127, 102, 83, 0.32);
+  background: rgba(217, 119, 87, 0.06);
+  border-color: rgba(217, 119, 87, 0.25);
   color: var(--ink-strong);
 }
 
@@ -564,7 +564,7 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
 }
 
 .request-alert {
-  border-radius: 18px;
+  border-radius: var(--radius-md);
 }
 
 .results-summary {
@@ -574,7 +574,7 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
 
 .project-stack {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 @media (max-width: 1024px) {
@@ -597,7 +597,7 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
   .filters-panel,
   .results-summary,
   .empty-panel {
-    padding: 22px;
+    padding: 20px;
   }
 
   .fetch-button {

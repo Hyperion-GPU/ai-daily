@@ -16,18 +16,18 @@ echo   AI Daily - Starting...
 echo ========================================
 echo.
 
-echo [1/5] Checking Python environment...
+echo [1/4] Checking Python environment...
 call :ensure_venv
 if errorlevel 1 goto :fail
 
-echo [2/5] Checking Python deps...
+echo [2/4] Checking Python deps...
 "%VENV_PIP%" install -q -r requirements.txt
 if errorlevel 1 (
     echo   Failed to install Python dependencies.
     goto :fail
 )
 
-echo [3/5] Building frontend...
+echo [3/4] Building frontend...
 pushd frontend >nul
 call npm.cmd run build
 set "BUILD_EXIT=%ERRORLEVEL%"
@@ -41,31 +41,15 @@ if not "%BUILD_EXIT%"=="0" (
     )
 )
 
-for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') do set "TODAY=%%i"
-set "REPORT=%ROOT%output\%TODAY%.json"
-set "STATE=%ROOT%data\state.json"
-
 if /I "%~1"=="refresh" (
-    echo [4/5] Force refresh: clearing state...
-    if exist "%REPORT%" del "%REPORT%"
-    if exist "%STATE%" del "%STATE%"
+    echo [Note] "refresh" no longer triggers an automatic fetch.
+    echo        Start the app, then click the dashboard fetch button to get today's AI news.
 )
 
-if not exist "%REPORT%" (
-    echo [4/5] Fetching today's AI news ^(%TODAY%^)...
-    "%VENV_PY%" main.py
-    if errorlevel 1 (
-        echo   Pipeline failed.
-        goto :fail
-    )
-    echo   Pipeline complete!
-) else (
-    echo [4/5] Today's data exists, skipping. Run with "refresh" to re-fetch.
-)
-
-echo [5/5] Starting server...
+echo [4/4] Starting server...
 echo.
 echo   URL: http://localhost:8000
+echo   Fetch mode: manual from dashboard
 echo   Close this window to stop
 echo.
 start "" http://localhost:8000

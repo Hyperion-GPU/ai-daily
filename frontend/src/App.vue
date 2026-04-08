@@ -14,84 +14,84 @@ const { copy, localeToggleLabel, toggleLocale } = useLocale();
 
 const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   common: {
-    fontFamily: '"Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+    fontFamily: '-apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
     fontFamilyMono: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-    primaryColor: '#7f6653',
-    primaryColorHover: '#6f5949',
-    primaryColorPressed: '#604c3e',
-    primaryColorSuppl: '#7f6653',
-    bodyColor: '#f4ede3',
-    cardColor: '#fffdf8',
-    modalColor: '#fffdf8',
-    popoverColor: '#fffdf8',
-    borderColor: 'rgba(73, 58, 45, 0.14)',
-    textColorBase: '#201b17',
-    textColor1: '#201b17',
-    textColor2: '#3c342d',
-    textColor3: '#6f665d',
-    textColorDisabled: '#9d9388',
-    placeholderColor: '#9d9388',
-    placeholderColorDisabled: '#b6aea5',
-    inputColor: 'rgba(255, 252, 247, 0.96)',
-    tableColor: '#fffdf8',
-    tableHeaderColor: '#f6efe4',
-    actionColor: 'rgba(127, 102, 83, 0.08)',
-    actionColorHover: 'rgba(127, 102, 83, 0.12)',
-    scrollbarColor: 'rgba(127, 102, 83, 0.22)',
-    scrollbarColorHover: 'rgba(127, 102, 83, 0.3)',
+    primaryColor: '#d97757',
+    primaryColorHover: '#c4684a',
+    primaryColorPressed: '#b35d42',
+    primaryColorSuppl: '#d97757',
+    bodyColor: '#f7f5f3',
+    cardColor: '#ffffff',
+    modalColor: '#ffffff',
+    popoverColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.10)',
+    textColorBase: '#1a1a1a',
+    textColor1: '#1a1a1a',
+    textColor2: '#333333',
+    textColor3: '#666666',
+    textColorDisabled: '#999999',
+    placeholderColor: '#999999',
+    placeholderColorDisabled: '#bbbbbb',
+    inputColor: '#ffffff',
+    tableColor: '#ffffff',
+    tableHeaderColor: '#faf9f7',
+    actionColor: 'rgba(0, 0, 0, 0.04)',
+    actionColorHover: 'rgba(0, 0, 0, 0.06)',
+    scrollbarColor: 'rgba(0, 0, 0, 0.15)',
+    scrollbarColorHover: 'rgba(0, 0, 0, 0.25)',
     scrollbarWidth: '8px',
-    borderRadius: '14px',
-    borderRadiusSmall: '10px',
+    borderRadius: '8px',
+    borderRadiusSmall: '6px',
   },
   Button: {
     borderRadiusSmall: '999px',
     borderRadiusMedium: '999px',
     borderRadiusLarge: '999px',
-    textColor: '#201b17',
-    textColorHover: '#201b17',
-    textColorPressed: '#201b17',
-    textColorFocus: '#201b17',
-    borderHover: '1px solid rgba(73, 58, 45, 0.18)',
-    borderPressed: '1px solid rgba(73, 58, 45, 0.22)',
-    colorHover: '#f7f1e7',
-    colorPressed: '#f1e9dd',
-    colorFocus: '#f7f1e7',
+    textColor: '#1a1a1a',
+    textColorHover: '#1a1a1a',
+    textColorPressed: '#1a1a1a',
+    textColorFocus: '#1a1a1a',
+    borderHover: '1px solid rgba(0, 0, 0, 0.12)',
+    borderPressed: '1px solid rgba(0, 0, 0, 0.18)',
+    colorHover: '#f2f0ee',
+    colorPressed: '#eae8e5',
+    colorFocus: '#f2f0ee',
   },
   Input: {
-    borderHover: '1px solid rgba(73, 58, 45, 0.18)',
-    borderFocus: '1px solid rgba(127, 102, 83, 0.3)',
-    boxShadowFocus: '0 0 0 3px rgba(127, 102, 83, 0.08)',
-    color: 'rgba(255, 252, 247, 0.96)',
+    borderHover: '1px solid rgba(0, 0, 0, 0.15)',
+    borderFocus: '1px solid rgba(217, 119, 87, 0.5)',
+    boxShadowFocus: '0 0 0 3px rgba(217, 119, 87, 0.08)',
+    color: '#ffffff',
   },
   Select: {
     peers: {
       InternalSelection: {
-        borderHover: '1px solid rgba(73, 58, 45, 0.18)',
-        borderFocus: '1px solid rgba(127, 102, 83, 0.3)',
-        boxShadowActive: '0 0 0 3px rgba(127, 102, 83, 0.08)',
-        color: 'rgba(255, 252, 247, 0.96)',
+        borderHover: '1px solid rgba(0, 0, 0, 0.15)',
+        borderFocus: '1px solid rgba(217, 119, 87, 0.5)',
+        boxShadowActive: '0 0 0 3px rgba(217, 119, 87, 0.08)',
+        color: '#ffffff',
       },
     },
   },
   Slider: {
-    railColor: 'rgba(127, 102, 83, 0.12)',
-    railColorHover: 'rgba(127, 102, 83, 0.18)',
-    fillColor: '#7f6653',
-    fillColorHover: '#6f5949',
-    handleColor: '#fffdf8',
-    handleColorHover: '#fffdf8',
-    dotColor: '#7f6653',
+    railColor: 'rgba(0, 0, 0, 0.08)',
+    railColorHover: 'rgba(0, 0, 0, 0.12)',
+    fillColor: '#d97757',
+    fillColorHover: '#c4684a',
+    handleColor: '#ffffff',
+    handleColorHover: '#ffffff',
+    dotColor: '#d97757',
   },
   Radio: {
-    buttonBorderColor: 'rgba(73, 58, 45, 0.12)',
-    buttonColor: 'rgba(255, 252, 247, 0.92)',
-    buttonTextColor: '#6f665d',
-    buttonTextColorActive: '#201b17',
-    buttonColorActive: '#f3ebdf',
+    buttonBorderColor: 'rgba(0, 0, 0, 0.10)',
+    buttonColor: '#faf9f7',
+    buttonTextColor: '#666666',
+    buttonTextColorActive: '#1a1a1a',
+    buttonColorActive: 'rgba(217, 119, 87, 0.08)',
   },
   Progress: {
-    railColor: 'rgba(127, 102, 83, 0.12)',
-    color: '#7f6653',
+    railColor: 'rgba(0, 0, 0, 0.06)',
+    color: '#d97757',
   },
 }));
 </script>
@@ -179,8 +179,8 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   top: 0;
   z-index: 10;
   backdrop-filter: blur(12px);
-  background: rgba(244, 237, 227, 0.8);
-  border-bottom: 1px solid rgba(73, 58, 45, 0.08);
+  background: rgba(247, 245, 243, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .site-header__inner,
@@ -208,7 +208,7 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 .brand-lockup__title {
   color: var(--ink-strong);
   font-family: var(--font-serif);
-  font-size: 1.55rem;
+  font-size: 1.4rem;
   line-height: 1;
   letter-spacing: -0.04em;
 }
@@ -223,11 +223,11 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 .site-nav {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
+  gap: 4px;
+  padding: 4px;
   border-radius: 999px;
-  border: 1px solid rgba(73, 58, 45, 0.1);
-  background: rgba(255, 252, 246, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .site-nav__link {
@@ -242,7 +242,7 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 .site-nav__link:hover,
 .site-nav__link--active {
   color: var(--ink-strong);
-  background: rgba(127, 102, 83, 0.1);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .site-actions {
@@ -254,10 +254,10 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 .edition-pill {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(73, 58, 45, 0.08);
-  background: rgba(255, 252, 246, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.6);
   color: var(--ink-faint);
   font-size: 0.75rem;
   letter-spacing: 0.1em;
@@ -284,7 +284,7 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   justify-content: space-between;
   gap: 16px;
   padding-top: 20px;
-  border-top: 1px solid rgba(73, 58, 45, 0.08);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
   color: var(--ink-faint);
   font-size: 0.84rem;
 }
