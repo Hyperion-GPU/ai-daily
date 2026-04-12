@@ -1,5 +1,6 @@
 import json
 import logging
+import asyncio
 from datetime import datetime, timezone
 
 import pytest
@@ -259,6 +260,77 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
     assert progress_updates[-1]["stage"] == "completed"
     assert progress_updates[-1]["report_articles"] == 2
     assert not (tmp_path / "output" / "2026-03-16.partial.json").exists()
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_cancels_other_stage1_batches_when_one_fails(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    config["pipeline"]["stage1_batch_size"] = 1
+    config["pipeline"]["stage1_concurrency"] = 2
+    logger = logging.getLogger("test-main-stage1-cancel")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        ),
+        RawArticle(
+            title="Beta",
+            url="https://example.com/beta",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Beta summary",
+            content="Beta content",
+        ),
+    ]
+    stage1_cancelled = {"value": False}
+    call_count = {"value": 0}
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self):
+            return articles
+
+        def save_state(self):
+            return None
+
+    class FakeLLMClient:
+        def __init__(self, config):
+            self.config = config
+
+        async def call_stage1(self, prompt):
+            call_count["value"] += 1
+            if call_count["value"] == 1:
+                raise RuntimeError("stage1 failed")
+            try:
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                stage1_cancelled["value"] = True
+                raise
+            return []
+
+        async def call_stage2(self, prompt):
+            raise AssertionError("Stage 2 should not run after Stage 1 failure")
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", FakeLLMClient)
+
+    with pytest.raises(RuntimeError, match="stage1 failed"):
+        await main.run_pipeline(config)
+
+    assert stage1_cancelled["value"] is True
 
 
 def test_stage1_target_for_batch_uses_proportional_buffer():

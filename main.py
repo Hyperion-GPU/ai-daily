@@ -329,7 +329,14 @@ async def run_pipeline(
         asyncio.create_task(process_stage1_batch(batch_idx, batch))
         for batch_idx, batch in enumerate(batches, 1)
     ]
-    await asyncio.gather(*stage1_tasks)
+    try:
+        await asyncio.gather(*stage1_tasks)
+    except Exception:
+        for task in stage1_tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*stage1_tasks, return_exceptions=True)
+        raise
 
     passed = [article for article in all_articles if article.url in selected_urls]
     filtered = split_by_ratio(
