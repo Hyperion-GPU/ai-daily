@@ -110,6 +110,8 @@ def _test_config(tmp_path):
         "outputs": {"output_dir": str(tmp_path / "output")},
         "pipeline": {
             "stage1_batch_size": 10,
+            "stage1_concurrency": 2,
+            "stage1_selection_buffer_ratio": 1.5,
             "max_articles_to_stage2": 10,
             "stage2_concurrency": 2,
             "max_articles_per_day": 10,
@@ -257,3 +259,34 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
     assert progress_updates[-1]["stage"] == "completed"
     assert progress_updates[-1]["report_articles"] == 2
     assert not (tmp_path / "output" / "2026-03-16.partial.json").exists()
+
+
+def test_stage1_target_for_batch_uses_proportional_buffer():
+    target = main._stage1_target_for_batch(
+        batch_size=20,
+        total_candidates=100,
+        max_to_stage2=50,
+        selection_buffer_ratio=1.6,
+    )
+    assert target == 16
+
+
+def test_stage1_target_for_batch_respects_batch_size_and_minimum():
+    assert (
+        main._stage1_target_for_batch(
+            batch_size=5,
+            total_candidates=20,
+            max_to_stage2=50,
+            selection_buffer_ratio=2.0,
+        )
+        == 5
+    )
+    assert (
+        main._stage1_target_for_batch(
+            batch_size=0,
+            total_candidates=20,
+            max_to_stage2=50,
+            selection_buffer_ratio=2.0,
+        )
+        == 0
+    )

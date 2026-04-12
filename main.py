@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
@@ -188,6 +189,21 @@ def _emit_progress(
     progress_callback(progress)  # type: ignore[arg-type]
 
 
+def _stage1_target_for_batch(
+    *,
+    batch_size: int,
+    total_candidates: int,
+    max_to_stage2: int,
+    selection_buffer_ratio: float,
+) -> int:
+    if batch_size <= 0 or total_candidates <= 0 or max_to_stage2 <= 0:
+        return 0
+
+    proportional = max_to_stage2 * (batch_size / total_candidates)
+    buffered = math.ceil(proportional * max(1.0, selection_buffer_ratio))
+    return max(1, min(batch_size, buffered))
+
+
 async def run_pipeline(
     config: dict,
     dry_run: bool = False,
@@ -202,6 +218,8 @@ async def run_pipeline(
 
     pipeline_cfg = config.get("pipeline", {})
     stage1_batch_size = pipeline_cfg.get("stage1_batch_size", 50)
+    stage1_concurrency = max(1, int(pipeline_cfg.get("stage1_concurrency", 3)))
+    stage1_selection_buffer_ratio = float(pipeline_cfg.get("stage1_selection_buffer_ratio", 1.6))
     max_to_stage2 = pipeline_cfg.get("max_articles_to_stage2", 50)
     stage2_concurrency = pipeline_cfg.get("stage2_concurrency", 5)
     max_output = pipeline_cfg.get("max_articles_per_day", 30)
@@ -263,27 +281,55 @@ async def run_pipeline(
 
     selected_urls = set()
     batches = [all_articles[i:i + stage1_batch_size] for i in range(0, len(all_articles), stage1_batch_size)]
+    stage1_semaphore = asyncio.Semaphore(stage1_concurrency)
+    stage1_lock = asyncio.Lock()
+    stage1_completed = 0
 
-    for batch_idx, batch in enumerate(batches, 1):
-        logger.info(f"Stage 1 batch {batch_idx}/{len(batches)}: {len(batch)} articles")
+    async def process_stage1_batch(batch_idx: int, batch: list) -> list[str]:
+        nonlocal stage1_completed
+
+        batch_target_count = _stage1_target_for_batch(
+            batch_size=len(batch),
+            total_candidates=len(all_articles),
+            max_to_stage2=max_to_stage2,
+            selection_buffer_ratio=stage1_selection_buffer_ratio,
+        )
+        logger.info(
+            f"Stage 1 batch {batch_idx}/{len(batches)}: {len(batch)} articles "
+            f"(target {batch_target_count})"
+        )
         article_lines = "\n".join(
             f"- Title: {article.title} | URL: {article.url} | Source: {article.source_name}"
             for article in batch
         )
-        prompt = stage1_template.render(target_count=max_to_stage2) + "\n\n" + article_lines
-        urls = await llm.call_stage1(prompt)
-        selected_urls.update(urls)
+        prompt = stage1_template.render(target_count=batch_target_count) + "\n\n" + article_lines
+
+        async with stage1_semaphore:
+            urls = await llm.call_stage1(prompt)
+
+        async with stage1_lock:
+            selected_urls.update(urls)
+            stage1_completed += 1
+            selected_so_far = len(selected_urls)
+
         logger.info(f"  Stage 1 batch {batch_idx} selected {len(urls)} URLs")
         _emit_progress(
             progress_callback,
             stage="stage1",
             message="Filtering candidate articles",
-            current=batch_idx,
+            current=stage1_completed,
             total=len(batches),
             candidates=len(all_articles),
-            selected=len(selected_urls),
+            selected=selected_so_far,
             processed=0,
         )
+        return urls
+
+    stage1_tasks = [
+        asyncio.create_task(process_stage1_batch(batch_idx, batch))
+        for batch_idx, batch in enumerate(batches, 1)
+    ]
+    await asyncio.gather(*stage1_tasks)
 
     passed = [article for article in all_articles if article.url in selected_urls]
     filtered = split_by_ratio(

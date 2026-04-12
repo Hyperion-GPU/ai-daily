@@ -26,6 +26,8 @@ pipeline:
   max_articles_to_stage2: 50     # Max number of articles entering Stage 2
   non_arxiv_ratio: 0.4           # Share of non-arxiv items kept in Stage 1 and final output
   stage1_batch_size: 50          # Chunk size for Stage 1 title filtering
+  stage1_concurrency: 3          # Concurrency for Stage 1 filtering batches
+  stage1_selection_buffer_ratio: 1.6  # Stage 1 keeps a buffered candidate pool before Stage 2
   stage2_concurrency: 5          # Concurrency for Stage 2 summarization
   time_window_hours: 48          # Only consider articles published in the last 48 hours
 
