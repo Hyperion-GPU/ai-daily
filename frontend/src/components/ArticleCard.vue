@@ -84,15 +84,13 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: var(--paper-elevated);
-  box-shadow: var(--shadow-card);
   display: grid;
   gap: 16px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .article-card:hover {
   border-color: rgba(0, 0, 0, 0.14);
-  box-shadow: var(--shadow-soft);
 }
 
 .article-card__header {
@@ -151,14 +149,18 @@ const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm');
 .article-card__title {
   color: var(--ink-strong);
   text-decoration: none;
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: clamp(1.35rem, 1.8vw, 1.85rem);
+  font-weight: 500;
   line-height: 1.2;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 
 .article-card__title:hover {
-  color: var(--accent);
+  color: var(--ink-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 .article-card__summary {

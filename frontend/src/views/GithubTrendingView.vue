@@ -411,7 +411,7 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
               :key="project.id"
               :project="project"
               class="animate-fade-up"
-              :style="{ animationDelay: `${Math.min(index * 35, 280) + 140}ms` }"
+              :style="{ animationDelay: `${Math.min(index * 20, 200) + 100}ms` }"
             />
           </div>
 
@@ -553,8 +553,8 @@ function debounce(fn: (...args: unknown[]) => void, ms = 300) {
 }
 
 .filter-option--active {
-  background: rgba(217, 119, 87, 0.06);
-  border-color: rgba(217, 119, 87, 0.25);
+  background: rgba(196, 149, 106, 0.06);
+  border-color: rgba(196, 149, 106, 0.20);
   color: var(--ink-strong);
 }
 

@@ -1,0 +1,20 @@
+<svg width="820" height="240" viewBox="0 0 820 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="820" height="240" rx="32" fill="#F8F1E8" />
+  <g transform="translate(28, 16)">
+    <rect x="0" y="0" width="208" height="208" rx="46" fill="#EED9C8" />
+    <rect x="42" y="26" width="122" height="164" rx="22" fill="#FFFDF8" />
+    <path d="M126 26H164V64L126 26Z" fill="#CA734E" />
+    <rect x="64" y="72" width="80" height="10" rx="5" fill="#40312A" />
+    <rect x="64" y="98" width="62" height="10" rx="5" fill="#7A5E52" />
+    <rect x="64" y="124" width="70" height="10" rx="5" fill="#7A5E52" />
+    <rect x="64" y="150" width="52" height="10" rx="5" fill="#CA734E" fill-opacity="0.85" />
+    <circle cx="54" cy="54" r="9" fill="#CA734E" />
+    <path d="M54 35V44" stroke="#CA734E" stroke-width="6" stroke-linecap="round" />
+    <path d="M54 64V73" stroke="#CA734E" stroke-width="6" stroke-linecap="round" />
+    <path d="M35 54H44" stroke="#CA734E" stroke-width="6" stroke-linecap="round" />
+    <path d="M64 54H73" stroke="#CA734E" stroke-width="6" stroke-linecap="round" />
+  </g>
+  <text x="286" y="108" fill="#1F1A17" font-size="76" font-weight="700" font-family="Georgia, 'Times New Roman', serif">AI Daily</text>
+  <text x="290" y="152" fill="#7A5E52" font-size="26" font-weight="500" font-family="'Segoe UI', sans-serif" letter-spacing="1.5">温暖的 AI 编辑部日报</text>
+</svg>
+

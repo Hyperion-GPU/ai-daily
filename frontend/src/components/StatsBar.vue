@@ -62,7 +62,7 @@ const items = computed(() => [
   display: block;
   margin-bottom: 6px;
   color: var(--ink-strong);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 1.35rem;
   line-height: 1;
 }

@@ -16,8 +16,7 @@ except ImportError:  # pragma: no cover
     trafilatura = None
 
 from src.utils import clean_html_tags, truncate_text
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from src.runtime import get_runtime_paths
 
 
 @dataclass
@@ -36,8 +35,8 @@ class FeedFetcher:
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
         self.logger = logger
-        self.state_file = PROJECT_ROOT / "data" / "state.json"
-        self.state_file.parent.mkdir(exist_ok=True)
+        self.state_file = get_runtime_paths(config=config).state_file
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
 
         pipeline_cfg = config.get("pipeline", {})
         self.time_window = pipeline_cfg.get("time_window_hours", 48)

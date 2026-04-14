@@ -376,7 +376,7 @@ const goBack = () => {
               :key="article.id"
               :article="article"
               class="animate-fade-up"
-              :style="{ animationDelay: `${Math.min(index * 40, 320) + 120}ms` }"
+              :style="{ animationDelay: `${Math.min(index * 20, 200) + 100}ms` }"
             />
           </div>
 

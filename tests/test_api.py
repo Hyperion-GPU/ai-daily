@@ -27,7 +27,7 @@ def test_get_digest_search_uses_casefold(monkeypatch):
         ],
     }
 
-    monkeypatch.setattr(api, "load_digest", lambda date: payload)
+    monkeypatch.setattr(api, "load_digest", lambda date, config=None: payload)
 
     result = api.get_digest("2026-03-14", tags=[], min_importance=1, sort="importance", q="strasse")
 
@@ -64,7 +64,7 @@ def test_get_digest_sorts_published_across_timezones(monkeypatch):
         ],
     }
 
-    monkeypatch.setattr(api, "load_digest", lambda date: payload)
+    monkeypatch.setattr(api, "load_digest", lambda date, config=None: payload)
 
     result = api.get_digest("2026-03-14", tags=[], min_importance=1, sort="published")
 
@@ -72,16 +72,16 @@ def test_get_digest_sorts_published_across_timezones(monkeypatch):
 
 
 def test_get_dates_prefers_index_for_stats(monkeypatch):
-    monkeypatch.setattr(api, "list_dates", lambda: ["2026-03-14", "2026-03-13"])
+    monkeypatch.setattr(api, "list_dates", lambda config=None: ["2026-03-14", "2026-03-13"])
     monkeypatch.setattr(
         api,
         "load_index",
-        lambda: [
+        lambda config=None: [
             {"date": "2026-03-14", "total": 3, "by_category": {"official": 2, "news": 1}},
             {"date": "2026-03-13", "total": 1, "by_category": {"arxiv": 1}},
         ],
     )
-    monkeypatch.setattr(api, "load_digest", lambda date: None)
+    monkeypatch.setattr(api, "load_digest", lambda date, config=None: None)
 
     result = api.get_dates()
 
@@ -95,12 +95,12 @@ def test_get_dates_prefers_index_for_stats(monkeypatch):
 
 
 def test_get_dates_falls_back_to_digest_when_index_missing_entry(monkeypatch):
-    monkeypatch.setattr(api, "list_dates", lambda: ["2026-03-14"])
-    monkeypatch.setattr(api, "load_index", lambda: [])
+    monkeypatch.setattr(api, "list_dates", lambda config=None: ["2026-03-14"])
+    monkeypatch.setattr(api, "load_index", lambda config=None: [])
     monkeypatch.setattr(
         api,
         "load_digest",
-        lambda date: {"stats": {"total": 5, "by_category": {"community": 5}}},
+        lambda date, config=None: {"stats": {"total": 5, "by_category": {"community": 5}}},
     )
 
     result = api.get_dates()
@@ -112,7 +112,7 @@ def test_get_dates_falls_back_to_digest_when_index_missing_entry(monkeypatch):
 
 
 def test_get_github_dates(monkeypatch):
-    monkeypatch.setattr(api, "list_github_dates", lambda: ["2026-03-16", "2026-03-15"])
+    monkeypatch.setattr(api, "list_github_dates", lambda config=None: ["2026-03-16", "2026-03-15"])
 
     result = api.get_github_dates()
 
@@ -176,7 +176,7 @@ def test_get_github_trending_filters_and_sorts(monkeypatch):
         ],
     }
 
-    monkeypatch.setattr(api, "load_github_trending", lambda date: payload)
+    monkeypatch.setattr(api, "load_github_trending", lambda date, config=None: payload)
 
     result = api.get_github_trending_by_date(
         "2026-03-16",
@@ -247,7 +247,7 @@ def test_get_github_trending_sorts_zero_growth_before_missing_values(monkeypatch
         ],
     }
 
-    monkeypatch.setattr(api, "load_github_trending", lambda date: payload)
+    monkeypatch.setattr(api, "load_github_trending", lambda date, config=None: payload)
 
     result = api.get_github_trending_by_date("2026-03-16", language=[], min_stars=0, sort="stars_today")
 
@@ -260,8 +260,8 @@ def test_get_latest_github_trending_uses_latest_snapshot(monkeypatch):
         "generated_at": "2026-03-16T10:00:00+08:00",
         "projects": [],
     }
-    monkeypatch.setattr(api, "list_github_dates", lambda: ["2026-03-16"])
-    monkeypatch.setattr(api, "load_github_trending", lambda date: payload)
+    monkeypatch.setattr(api, "list_github_dates", lambda config=None: ["2026-03-16"])
+    monkeypatch.setattr(api, "load_github_trending", lambda date, config=None: payload)
 
     result = api.get_latest_github_trending(language=[], min_stars=0, sort="stars")
 

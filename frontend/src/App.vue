@@ -16,25 +16,25 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   common: {
     fontFamily: '-apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
     fontFamilyMono: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-    primaryColor: '#d97757',
-    primaryColorHover: '#c4684a',
-    primaryColorPressed: '#b35d42',
-    primaryColorSuppl: '#d97757',
-    bodyColor: '#f7f5f3',
+    primaryColor: '#c4956a',
+    primaryColorHover: '#b5875e',
+    primaryColorPressed: '#a67a54',
+    primaryColorSuppl: '#c4956a',
+    bodyColor: '#f5f4f1',
     cardColor: '#ffffff',
     modalColor: '#ffffff',
     popoverColor: '#ffffff',
-    borderColor: 'rgba(0, 0, 0, 0.10)',
-    textColorBase: '#1a1a1a',
-    textColor1: '#1a1a1a',
-    textColor2: '#333333',
-    textColor3: '#666666',
-    textColorDisabled: '#999999',
-    placeholderColor: '#999999',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    textColorBase: '#191918',
+    textColor1: '#191918',
+    textColor2: '#3d3d3a',
+    textColor3: '#6b6b66',
+    textColorDisabled: '#9a9a94',
+    placeholderColor: '#9a9a94',
     placeholderColorDisabled: '#bbbbbb',
     inputColor: '#ffffff',
     tableColor: '#ffffff',
-    tableHeaderColor: '#faf9f7',
+    tableHeaderColor: '#f9f8f6',
     actionColor: 'rgba(0, 0, 0, 0.04)',
     actionColorHover: 'rgba(0, 0, 0, 0.06)',
     scrollbarColor: 'rgba(0, 0, 0, 0.15)',
@@ -47,10 +47,10 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
     borderRadiusSmall: '999px',
     borderRadiusMedium: '999px',
     borderRadiusLarge: '999px',
-    textColor: '#1a1a1a',
-    textColorHover: '#1a1a1a',
-    textColorPressed: '#1a1a1a',
-    textColorFocus: '#1a1a1a',
+    textColor: '#191918',
+    textColorHover: '#191918',
+    textColorPressed: '#191918',
+    textColorFocus: '#191918',
     borderHover: '1px solid rgba(0, 0, 0, 0.12)',
     borderPressed: '1px solid rgba(0, 0, 0, 0.18)',
     colorHover: '#f2f0ee',
@@ -59,16 +59,16 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   },
   Input: {
     borderHover: '1px solid rgba(0, 0, 0, 0.15)',
-    borderFocus: '1px solid rgba(217, 119, 87, 0.5)',
-    boxShadowFocus: '0 0 0 3px rgba(217, 119, 87, 0.08)',
+    borderFocus: '1px solid rgba(196, 149, 106, 0.5)',
+    boxShadowFocus: '0 0 0 3px rgba(196, 149, 106, 0.08)',
     color: '#ffffff',
   },
   Select: {
     peers: {
       InternalSelection: {
         borderHover: '1px solid rgba(0, 0, 0, 0.15)',
-        borderFocus: '1px solid rgba(217, 119, 87, 0.5)',
-        boxShadowActive: '0 0 0 3px rgba(217, 119, 87, 0.08)',
+        borderFocus: '1px solid rgba(196, 149, 106, 0.5)',
+        boxShadowActive: '0 0 0 3px rgba(196, 149, 106, 0.08)',
         color: '#ffffff',
       },
     },
@@ -76,22 +76,22 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   Slider: {
     railColor: 'rgba(0, 0, 0, 0.08)',
     railColorHover: 'rgba(0, 0, 0, 0.12)',
-    fillColor: '#d97757',
-    fillColorHover: '#c4684a',
+    fillColor: '#c4956a',
+    fillColorHover: '#b5875e',
     handleColor: '#ffffff',
     handleColorHover: '#ffffff',
-    dotColor: '#d97757',
+    dotColor: '#c4956a',
   },
   Radio: {
     buttonBorderColor: 'rgba(0, 0, 0, 0.10)',
-    buttonColor: '#faf9f7',
-    buttonTextColor: '#666666',
-    buttonTextColorActive: '#1a1a1a',
-    buttonColorActive: 'rgba(217, 119, 87, 0.08)',
+    buttonColor: '#f9f8f6',
+    buttonTextColor: '#6b6b66',
+    buttonTextColorActive: '#191918',
+    buttonColorActive: 'rgba(196, 149, 106, 0.08)',
   },
   Progress: {
     railColor: 'rgba(0, 0, 0, 0.06)',
-    color: '#d97757',
+    color: '#c4956a',
   },
 }));
 </script>
@@ -179,7 +179,7 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   top: 0;
   z-index: 10;
   backdrop-filter: blur(12px);
-  background: rgba(247, 245, 243, 0.85);
+  background: rgba(245, 244, 241, 0.88);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
@@ -207,8 +207,9 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
 
 .brand-lockup__title {
   color: var(--ink-strong);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 1.4rem;
+  font-weight: 500;
   line-height: 1;
   letter-spacing: -0.04em;
 }

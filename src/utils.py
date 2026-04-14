@@ -3,12 +3,12 @@ import os
 import re
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
 from typing import Any, TypeVar
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .runtime import get_runtime_paths
+
 logger = logging.getLogger("aidaily")
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 T = TypeVar("T")
 
 
@@ -28,26 +28,36 @@ def now_in_config_timezone(config: dict) -> datetime:
 def setup_logger(config: dict) -> logging.Logger:
     """Initialize the application logger for stdout and daily log files."""
     app_logger = logging.getLogger("aidaily")
-    if app_logger.hasHandlers():
-        return app_logger
     app_logger.setLevel(logging.INFO)
 
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    app_logger.addHandler(console_handler)
+    has_console_handler = any(
+        isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
+        for handler in app_logger.handlers
+    )
+    if not has_console_handler:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        app_logger.addHandler(console_handler)
 
-    out_dir = PROJECT_ROOT / config.get("outputs", {}).get("output_dir", "output")
+    out_dir = get_runtime_paths(config=config).output_dir
     os.makedirs(out_dir, exist_ok=True)
 
     log_filename_template = config.get("outputs", {}).get("log_filename", "{date}.log")
     date_str = now_in_config_timezone(config).strftime("%Y-%m-%d")
     log_filepath = out_dir / log_filename_template.replace("{date}", date_str)
 
-    file_handler = logging.FileHandler(log_filepath, encoding="utf-8")
-    file_handler.setFormatter(formatter)
-    app_logger.addHandler(file_handler)
+    existing_file_handlers = [
+        handler for handler in app_logger.handlers if isinstance(handler, logging.FileHandler)
+    ]
+    if not any(getattr(handler, "baseFilename", "") == str(log_filepath) for handler in existing_file_handlers):
+        for handler in existing_file_handlers:
+            app_logger.removeHandler(handler)
+            handler.close()
+        file_handler = logging.FileHandler(log_filepath, encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        app_logger.addHandler(file_handler)
 
     return app_logger
 

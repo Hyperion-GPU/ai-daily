@@ -84,15 +84,13 @@ const timeAgo = computed(() => {
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: var(--paper-elevated);
-  box-shadow: var(--shadow-card);
   display: grid;
   gap: 16px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .project-card:hover {
   border-color: rgba(0, 0, 0, 0.14);
-  box-shadow: var(--shadow-soft);
 }
 
 .project-card__header {
@@ -118,14 +116,18 @@ const timeAgo = computed(() => {
 .project-card__title {
   color: var(--ink-strong);
   text-decoration: none;
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: clamp(1.3rem, 1.8vw, 1.75rem);
+  font-weight: 500;
   line-height: 1.18;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 
 .project-card__title:hover {
-  color: var(--accent);
+  color: var(--ink-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 .project-card__action {
