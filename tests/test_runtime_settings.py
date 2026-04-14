@@ -140,3 +140,31 @@ def test_sync_web_data_to_desktop_keeps_newer_desktop_file(monkeypatch, tmp_path
 
     assert report["copied_files"] == 0
     assert target.read_text(encoding="utf-8") == '["desktop"]'
+
+
+def test_sync_web_data_to_desktop_respects_configured_web_output_dir(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    bundle_root = repo_root
+    configured_output = repo_root / "custom-output"
+    default_output = repo_root / "output"
+    data_dir = repo_root / "data"
+    configured_output.mkdir(parents=True)
+    default_output.mkdir(parents=True)
+    data_dir.mkdir(parents=True)
+
+    (configured_output / "2026-04-09.json").write_text('{"date":"2026-04-09"}', encoding="utf-8")
+    (default_output / "ignored.json").write_text('{"date":"ignored"}', encoding="utf-8")
+    (data_dir / "state.json").write_text('{"seen_urls":["a"]}', encoding="utf-8")
+
+    monkeypatch.setenv("AI_DAILY_DESKTOP_MODE", "1")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
+    monkeypatch.setattr("src.runtime._repo_root", lambda: repo_root)
+    monkeypatch.setattr("src.runtime._bundle_root", lambda: bundle_root)
+
+    report = sync_web_data_to_desktop(config={"outputs": {"output_dir": "custom-output"}})
+    desktop_root = tmp_path / "localappdata" / "AI Daily"
+
+    assert report["copied_files"] == 1
+    assert report["state_copied"] == 1
+    assert (desktop_root / "custom-output" / "2026-04-09.json").exists()
+    assert not (desktop_root / "custom-output" / "ignored.json").exists()

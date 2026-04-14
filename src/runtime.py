@@ -61,6 +61,23 @@ def is_desktop_runtime(config: Mapping[str, object] | None = None, mode: str | N
     return os.getenv(DESKTOP_MODE_ENV) == "1" or bool(getattr(sys, "frozen", False))
 
 
+def _raw_output_dir(config: Mapping[str, object] | None = None) -> str:
+    outputs_cfg = {}
+    if isinstance(config, Mapping):
+        raw_outputs = config.get("outputs")
+        if isinstance(raw_outputs, Mapping):
+            outputs_cfg = raw_outputs
+
+    return str(outputs_cfg.get("output_dir", "output"))
+
+
+def _resolve_output_dir(raw_output_dir: str, writable_root: Path) -> Path:
+    output_dir = Path(raw_output_dir)
+    if not output_dir.is_absolute():
+        output_dir = writable_root / output_dir
+    return output_dir
+
+
 def get_runtime_paths(config: Mapping[str, object] | None = None, mode: str | None = None) -> RuntimePaths:
     repo_root = _repo_root()
     bundle_root = _bundle_root()
@@ -69,16 +86,7 @@ def get_runtime_paths(config: Mapping[str, object] | None = None, mode: str | No
     resolved_mode = "desktop" if desktop_mode else "web"
     writable_root = user_data_dir if desktop_mode else repo_root
 
-    outputs_cfg = {}
-    if isinstance(config, Mapping):
-        raw_outputs = config.get("outputs")
-        if isinstance(raw_outputs, Mapping):
-            outputs_cfg = raw_outputs
-
-    raw_output_dir = str(outputs_cfg.get("output_dir", "output"))
-    output_dir = Path(raw_output_dir)
-    if not output_dir.is_absolute():
-        output_dir = writable_root / output_dir
+    output_dir = _resolve_output_dir(_raw_output_dir(config), writable_root)
 
     state_file = writable_root / "data" / "state.json"
     config_path = user_data_dir / "config.yaml" if desktop_mode else repo_root / "config.yaml"
@@ -141,12 +149,16 @@ def sync_web_data_to_desktop(config: Mapping[str, object] | None = None) -> dict
     copied_files = 0
     skipped_files = 0
 
-    output_sources = _unique_existing_paths(
-        [
-            paths.repo_root / "output",
-            paths.bundle_root / "output",
+    raw_output_dir = Path(_raw_output_dir(config))
+    if raw_output_dir.is_absolute():
+        output_candidates = [raw_output_dir]
+    else:
+        output_candidates = [
+            paths.repo_root / raw_output_dir,
+            paths.bundle_root / raw_output_dir,
         ]
-    )
+
+    output_sources = _unique_existing_paths(output_candidates)
     for source_root in output_sources:
         try:
             if source_root.resolve() == paths.output_dir.resolve():
