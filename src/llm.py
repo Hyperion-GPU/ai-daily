@@ -1,13 +1,10 @@
 ﻿import json
 import logging
-import os
-from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, InternalServerError, RateLimitError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+from .settings import get_llm_api_key
 
 logger = logging.getLogger('aidaily')
 
@@ -19,7 +16,7 @@ class LLMClient:
         provider_cfg = llm_cfg.get(provider, {})
 
         api_key_env = provider_cfg.get('api_key_env', 'SILICONFLOW_API_KEY')
-        api_key = os.environ.get(api_key_env)
+        api_key = get_llm_api_key(config)
         if not api_key:
             raise ValueError(f"Environment variable '{api_key_env}' is not set.")
 

@@ -243,7 +243,7 @@ const MESSAGES: Record<AppLocale, LocaleMessages> = {
   zh: {
     app: {
       beta: '测试版',
-      footer: '每日 AI 日报',
+      footer: '每日AI资讯',
       digestNav: '日报',
       githubNav: 'GitHub',
       skipToContent: '跳转到主要内容',

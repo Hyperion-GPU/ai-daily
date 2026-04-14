@@ -1,5 +1,4 @@
 import json
-import os
 from collections import Counter
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
@@ -8,6 +7,8 @@ from typing import Literal, TypedDict
 
 import httpx
 
+from src.runtime import get_runtime_paths
+from src.settings import get_github_token
 from src.utils import now_in_config_timezone, setup_logger
 
 from .categories import resolve_category
@@ -45,7 +46,7 @@ class GitHubTrendingFetcher:
             if isinstance(topic, str) and topic.strip()
         ]
         self.category_map = github_cfg.get("category_map", {})
-        self.output_dir = Path(__file__).resolve().parents[2] / config.get("outputs", {}).get("output_dir", "output")
+        self.output_dir = get_runtime_paths(config=config).output_dir
         self.github_output_dir = self.output_dir / "github"
         self.github_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -104,7 +105,7 @@ class GitHubTrendingFetcher:
             "User-Agent": "AI-Daily-GitHub-Trending/1.0",
             "X-GitHub-Api-Version": "2022-11-28",
         }
-        token = os.getenv(self.token_env) if self.token_env else None
+        token = get_github_token(self.config) if self.token_env else None
         if token:
             headers["Authorization"] = f"Bearer {token}"
         return headers

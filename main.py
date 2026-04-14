@@ -6,15 +6,14 @@ import sys
 from pathlib import Path
 from typing import Callable, Literal, TypedDict
 
-import yaml
 from jinja2 import Template
 
 from src.fetcher import FeedFetcher
 from src.llm import LLMClient
 from src.reporter import generate_report
+from src.runtime import get_runtime_paths
+from src.settings import load_config as _load_config
 from src.utils import now_in_config_timezone, setup_logger, split_by_ratio
-
-BASE_DIR = Path(__file__).resolve().parent
 
 
 class ProcessedArticle(TypedDict):
@@ -45,7 +44,7 @@ class PipelineProgress(TypedDict, total=False):
 
 
 def _output_dir(config: dict) -> Path:
-    return BASE_DIR / config.get("outputs", {}).get("output_dir", "output")
+    return get_runtime_paths(config=config).output_dir
 
 
 def _digest_path(config: dict, date_str: str) -> Path:
@@ -56,13 +55,8 @@ def _partial_path(config: dict, date_str: str) -> Path:
     return _output_dir(config) / f"{date_str}.partial.json"
 
 
-def load_config(config_path: str | Path = "config.yaml") -> dict:
-    resolved_path = Path(config_path)
-    if not resolved_path.exists():
-        raise FileNotFoundError(f"Config file not found: {resolved_path}")
-
-    with open(resolved_path, "r", encoding="utf-8") as file:
-        return yaml.safe_load(file)
+def load_config(config_path: str | Path = "config.yaml", mode: str | None = None) -> dict:
+    return _load_config(config_path=config_path, mode=mode)
 
 
 def _load_existing_digest_articles(config: dict, date_str: str, logger) -> list[ProcessedArticle]:
@@ -277,7 +271,8 @@ async def run_pipeline(
         return {"result": "dry_run", "article_count": len(all_articles)}
 
     llm = LLMClient(config)
-    stage1_template = Template((BASE_DIR / "prompts" / "stage1_filter.txt").read_text(encoding="utf-8"))
+    prompts_dir = get_runtime_paths(config=config).prompts_dir
+    stage1_template = Template((prompts_dir / "stage1_filter.txt").read_text(encoding="utf-8"))
 
     selected_urls = set()
     batches = [all_articles[i:i + stage1_batch_size] for i in range(0, len(all_articles), stage1_batch_size)]
@@ -379,7 +374,7 @@ async def run_pipeline(
             "article_count": len(existing_articles),
         }
 
-    stage2_template = Template((BASE_DIR / "prompts" / "stage2_summary.txt").read_text(encoding="utf-8"))
+    stage2_template = Template((prompts_dir / "stage2_summary.txt").read_text(encoding="utf-8"))
     semaphore = asyncio.Semaphore(stage2_concurrency)
     partial_results = _load_partial_results(partial_path, logger)
     partial_lock = asyncio.Lock()

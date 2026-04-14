@@ -47,6 +47,32 @@ cd ..
 
 Then open `http://localhost:8000`.
 
+### Desktop app
+
+```powershell
+.venv\Scripts\pip install -r requirements-desktop.txt
+.venv\Scripts\python.exe desktop_main.py
+```
+
+Desktop mode opens a native Windows window and does not rely on a browser or local HTTP server.
+
+User-writable data is stored under:
+
+```text
+%LOCALAPPDATA%\AI Daily\
+```
+
+This directory contains the desktop config, outputs, logs, and state files.
+On startup, the desktop app also syncs existing archives from the repository `output\` and `data\state.json`
+into the desktop data directory when those files are missing or older.
+
+### Build Windows `.exe`
+
+```powershell
+.venv\Scripts\pip install -r requirements-build.txt
+.venv\Scripts\pyinstaller.exe build\windows\AI Daily.spec
+```
+
 ## Configuration
 
 Main configuration lives in `config.yaml`.
@@ -67,8 +93,11 @@ SILICONFLOW_API_KEY=your_key_here
 
 `.env` is ignored by Git.
 
+In desktop mode, the same non-secret configuration is written to `%LOCALAPPDATA%\AI Daily\config.yaml`, while secrets are intended to live in the system keyring when available.
+
 ## Tests
 
 ```powershell
+.venv\Scripts\pip install -r requirements-dev.txt
 .venv\Scripts\pytest.exe tests -v
 ```

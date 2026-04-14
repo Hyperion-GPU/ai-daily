@@ -4,10 +4,10 @@ import logging
 from collections import Counter
 from pathlib import Path
 
+from src.runtime import get_runtime_paths
 from src.utils import now_in_config_timezone
 
 logger = logging.getLogger('aidaily')
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _article_id(url: str) -> str:
@@ -42,8 +42,8 @@ def _write_index(index_path: Path, date_str: str, total: int, by_category: dict[
 
 def generate_report(articles: list[dict], config: dict, generated_at=None) -> Path:
     """Generate both Markdown and JSON reports."""
-    out_dir = PROJECT_ROOT / config.get('outputs', {}).get('output_dir', 'output')
-    out_dir.mkdir(exist_ok=True)
+    out_dir = get_runtime_paths(config=config).output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     generated_at = generated_at or now_in_config_timezone(config)
     date_str = generated_at.strftime('%Y-%m-%d')

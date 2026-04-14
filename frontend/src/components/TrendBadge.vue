@@ -39,14 +39,14 @@ const label = computed(() => {
 }
 
 .trend-badge--hot {
-  color: #c25650;
-  background: rgba(194, 86, 80, 0.06);
-  border-color: rgba(194, 86, 80, 0.15);
+  color: #b5706a;
+  background: rgba(181, 112, 106, 0.06);
+  border-color: rgba(181, 112, 106, 0.12);
 }
 
 .trend-badge--rising {
   color: var(--accent);
-  background: rgba(217, 119, 87, 0.06);
-  border-color: rgba(217, 119, 87, 0.15);
+  background: rgba(196, 149, 106, 0.06);
+  border-color: rgba(196, 149, 106, 0.12);
 }
 </style>

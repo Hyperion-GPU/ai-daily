@@ -112,7 +112,7 @@ const progressItems = computed(() =>
 
 .progress-card__pill--error {
   color: var(--danger);
-  background: rgba(194, 86, 80, 0.06);
+  background: rgba(181, 112, 106, 0.06);
 }
 
 .progress-card__track {
@@ -158,7 +158,7 @@ const progressItems = computed(() =>
 
 .progress-card__metric-value {
   color: var(--ink-strong);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 1.4rem;
   line-height: 1;
 }

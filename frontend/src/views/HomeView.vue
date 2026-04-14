@@ -300,7 +300,7 @@ const goToDigest = (date: string) => {
             :key="entry.date"
             type="button"
             class="archive-row animate-fade-up"
-            :style="{ animationDelay: `${Math.min(index * 50, 360) + 140}ms` }"
+            :style="{ animationDelay: `${Math.min(index * 25, 200) + 100}ms` }"
             @click="goToDigest(entry.date)"
           >
             <div class="archive-row__meta">
@@ -405,8 +405,8 @@ const goToDigest = (date: string) => {
 
 .soft-pill--live {
   color: var(--ink-strong);
-  border-color: rgba(217, 119, 87, 0.2);
-  background: rgba(217, 119, 87, 0.06);
+  border-color: rgba(196, 149, 106, 0.2);
+  background: rgba(196, 149, 106, 0.06);
 }
 
 .status-dot {
@@ -418,7 +418,6 @@ const goToDigest = (date: string) => {
 
 .status-dot--live {
   background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(217, 119, 87, 0.1);
 }
 
 .status-note {
@@ -470,7 +469,7 @@ const goToDigest = (date: string) => {
 .status-metric__value,
 .status-placeholder__value {
   color: var(--ink-strong);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 1.4rem;
   line-height: 1;
 }
@@ -507,12 +506,11 @@ const goToDigest = (date: string) => {
   gap: 18px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .archive-row:hover {
   border-color: rgba(0, 0, 0, 0.14);
-  box-shadow: var(--shadow-soft);
 }
 
 .archive-row__meta {
@@ -530,7 +528,7 @@ const goToDigest = (date: string) => {
 
 .archive-row__date {
   color: var(--ink-strong);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 1.45rem;
   line-height: 1.1;
 }
@@ -561,7 +559,7 @@ const goToDigest = (date: string) => {
 
 .archive-row__count {
   color: var(--ink-strong);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: 2rem;
   line-height: 1;
 }
