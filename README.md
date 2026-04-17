@@ -55,6 +55,31 @@ Then open `http://localhost:8000`.
 ```
 
 Desktop mode opens a native Windows window and does not rely on a browser or local HTTP server.
+The desktop runtime is now `QML-only` (`PySide6 + QML + Qt Quick Controls`).
+`AI_DAILY_DESKTOP_UI=widgets` is no longer supported and now fails fast with a removed-mode error.
+It is kept only as a removed-mode contract check and is no longer a recoverable desktop mode.
+
+For local desktop verification, use the pinned Python 3.12 virtual environment tools instead of bare `python`.
+The desktop mainline check and the packaged-app closeout are two separate steps:
+
+```powershell
+.venv\Scripts\python.exe -m pytest tests\test_desktop_entry.py tests\test_desktop_packaging_smoke.py tests\test_desktop_qml_smoke.py tests\test_desktop_qml_quick.py -q
+```
+
+```powershell
+.venv\Scripts\pyinstaller.exe -y "build\windows\AI Daily.spec"
+.venv\Scripts\python.exe -m pytest tests\test_desktop_packaging_smoke.py -q
+.venv\Scripts\python.exe scripts\check_packaged_desktop.py --mode default-qml --localappdata-root ".\localappdata\aid-closeout-default"
+.venv\Scripts\python.exe scripts\check_packaged_desktop.py --mode widgets-removed --localappdata-root ".\localappdata\aid-closeout-widgets"
+```
+
+If `.venv` starts failing with `No Python at ...`, rebuild it with Python 3.12 and reinstall the desktop, dev, and build dependencies:
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
+```
 
 User-writable data is stored under:
 
