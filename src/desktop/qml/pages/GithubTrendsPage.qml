@@ -36,7 +36,6 @@ Item {
         githubFacade ? githubFacade.availableLanguages : []
     )
     readonly property var selectedProject: githubFacade ? githubFacade.projectModel.selectedItem : ({})
-    readonly property bool compactFilters: root.width < 1380
 
     objectName: "githubWorkspace"
 
@@ -228,206 +227,215 @@ Item {
             }
         }
 
-        SectionCard {
-            Layout.fillWidth: true
-            tokens: root.tokens
-            heading: "筛选"
-            supportingText: "把过滤条件收敛成一条安静、结构化的内容带。"
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 14
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: root.compactFilters ? 3 : 5
-                    rowSpacing: 14
-                    columnSpacing: 14
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "分类"
-
-                        ComboBox {
-                            id: categoryCombo
-                            Layout.fillWidth: true
-                            model: root.categoryOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (githubFacade) githubFacade.setCategoryFilter(currentValue)
-                            Binding {
-                                target: categoryCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.categoryOptions, githubFacade ? githubFacade.categoryFilter : "")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "语言"
-
-                        ComboBox {
-                            id: languageCombo
-                            Layout.fillWidth: true
-                            model: root.languageOptions
-                            textRole: "label"
-                            valueRole: "value"
-                            onActivated: {
-                                if (githubFacade) {
-                                    githubFacade.setSelectedLanguages(currentValue.length > 0 ? [currentValue] : [])
-                                }
-                            }
-                            Binding {
-                                target: languageCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.languageOptions, root.selectedLanguageValue())
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "趋势"
-
-                        ComboBox {
-                            id: trendCombo
-                            Layout.fillWidth: true
-                            model: root.trendOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (githubFacade) githubFacade.setTrendFilter(currentValue)
-                            Binding {
-                                target: trendCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.trendOptions, githubFacade ? githubFacade.trendFilter : "")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "最小 Stars"
-
-                        SpinBox {
-                            id: minStarsSpin
-                            Layout.fillWidth: true
-                            from: 0
-                            to: 1000000
-                            editable: true
-                            onValueModified: if (githubFacade) githubFacade.setMinStars(value)
-                            Binding {
-                                target: minStarsSpin
-                                property: "value"
-                                value: githubFacade ? githubFacade.minStars : 0
-                                when: !minStarsSpin.activeFocus
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "排序"
-
-                        ComboBox {
-                            id: sortCombo
-                            Layout.fillWidth: true
-                            model: root.sortOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (githubFacade) githubFacade.setSortKey(currentValue)
-                            Binding {
-                                target: sortCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.sortOptions, githubFacade ? githubFacade.sortKey : "stars")
-                            }
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Item { Layout.fillWidth: true }
-
-                    Button {
-                        id: applyFiltersButton
-                        objectName: "githubApplyFiltersButton"
-                        text: "应用筛选"
-                        enabled: githubFacade ? !githubFacade.busy : false
-                        onClicked: if (githubFacade) githubFacade.reload()
-                    }
-
-                    Button {
-                        id: clearFiltersButton
-                        objectName: "githubClearFiltersButton"
-                        text: "清空筛选"
-                        enabled: githubFacade ? !githubFacade.busy : false
-                        onClicked: if (githubFacade) githubFacade.clearFilters()
-                    }
-                }
-            }
-        }
-
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 16
 
-            SectionCard {
-                Layout.minimumWidth: 228
-                Layout.preferredWidth: 228
-                Layout.maximumWidth: 228
+            ColumnLayout {
+                Layout.minimumWidth: 220
+                Layout.preferredWidth: 220
+                Layout.maximumWidth: 220
                 Layout.fillHeight: true
-                tokens: root.tokens
-                heading: "快照归档"
-                supportingText: "按日期切换正式快照。"
+                spacing: 12
 
-                Item {
+                SectionCard {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 282
+                    tokens: root.tokens
+                    heading: "快照归档"
+                    supportingText: "按日期切换正式快照。"
 
-                    ListView {
-                        id: snapshotList
-                        objectName: "githubSnapshotList"
-                        anchors.fill: parent
-                        model: githubFacade ? githubFacade.snapshotModel : null
-                        spacing: 8
-                        clip: true
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
 
-                        delegate: SnapshotListDelegate {
-                            width: ListView.view.width
-                            tokens: root.tokens
-                            date: model.date
-                            label: model.label
-                            isSelected: model.isSelected
-                            isLatest: model.isLatest
-                            projectCount: model.projectCount
-                            generatedAt: model.generatedAt || ""
-                            onClicked: if (githubFacade) githubFacade.selectSnapshotRow(index)
+                        ListView {
+                            id: snapshotList
+                            objectName: "githubSnapshotList"
+                            anchors.fill: parent
+                            model: githubFacade ? githubFacade.snapshotModel : null
+                            spacing: 8
+                            clip: true
+
+                            delegate: SnapshotListDelegate {
+                                width: ListView.view.width
+                                tokens: root.tokens
+                                date: model.date
+                                label: model.label
+                                isSelected: model.isSelected
+                                isLatest: model.isLatest
+                                projectCount: model.projectCount
+                                generatedAt: model.generatedAt || ""
+                                onClicked: if (githubFacade) githubFacade.selectSnapshotRow(index)
+                            }
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: snapshotList.count === 0
+                            text: "暂无 GitHub 快照。"
+                            color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                            font.family: root.tokens ? root.tokens.sansFamily : font.family
                         }
                     }
+                }
 
-                    Label {
-                        anchors.centerIn: parent
-                        visible: snapshotList.count === 0
-                        text: "暂无 GitHub 快照。"
-                        color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                SectionCard {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    tokens: root.tokens
+                    heading: "筛选"
+                    supportingText: "把过滤条件收敛到侧栏中，减少对正文空间的占用。"
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "分类"
+
+                            ComboBox {
+                                id: categoryCombo
+                                Layout.fillWidth: true
+                                implicitHeight: 38
+                                model: root.categoryOptions
+                                textRole: "text"
+                                valueRole: "value"
+                                onActivated: if (githubFacade) githubFacade.setCategoryFilter(currentValue)
+                                Binding {
+                                    target: categoryCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.categoryOptions, githubFacade ? githubFacade.categoryFilter : "")
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "语言"
+
+                            ComboBox {
+                                id: languageCombo
+                                Layout.fillWidth: true
+                                implicitHeight: 38
+                                model: root.languageOptions
+                                textRole: "label"
+                                valueRole: "value"
+                                onActivated: {
+                                    if (githubFacade) {
+                                        githubFacade.setSelectedLanguages(currentValue.length > 0 ? [currentValue] : [])
+                                    }
+                                }
+                                Binding {
+                                    target: languageCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.languageOptions, root.selectedLanguageValue())
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "趋势"
+
+                            ComboBox {
+                                id: trendCombo
+                                Layout.fillWidth: true
+                                implicitHeight: 38
+                                model: root.trendOptions
+                                textRole: "text"
+                                valueRole: "value"
+                                onActivated: if (githubFacade) githubFacade.setTrendFilter(currentValue)
+                                Binding {
+                                    target: trendCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.trendOptions, githubFacade ? githubFacade.trendFilter : "")
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "最小 Stars"
+
+                            SpinBox {
+                                id: minStarsSpin
+                                Layout.fillWidth: true
+                                implicitHeight: 38
+                                from: 0
+                                to: 1000000
+                                editable: true
+                                onValueModified: if (githubFacade) githubFacade.setMinStars(value)
+                                Binding {
+                                    target: minStarsSpin
+                                    property: "value"
+                                    value: githubFacade ? githubFacade.minStars : 0
+                                    when: !minStarsSpin.activeFocus
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "排序"
+
+                            ComboBox {
+                                id: sortCombo
+                                Layout.fillWidth: true
+                                implicitHeight: 38
+                                model: root.sortOptions
+                                textRole: "text"
+                                valueRole: "value"
+                                onActivated: if (githubFacade) githubFacade.setSortKey(currentValue)
+                                Binding {
+                                    target: sortCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.sortOptions, githubFacade ? githubFacade.sortKey : "stars")
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Button {
+                                id: applyFiltersButton
+                                objectName: "githubApplyFiltersButton"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                text: "应用"
+                                font.pixelSize: 12
+                                enabled: githubFacade ? !githubFacade.busy : false
+                                onClicked: if (githubFacade) githubFacade.reload()
+                            }
+
+                            Button {
+                                id: clearFiltersButton
+                                objectName: "githubClearFiltersButton"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                text: "清空"
+                                font.pixelSize: 12
+                                enabled: githubFacade ? !githubFacade.busy : false
+                                onClicked: if (githubFacade) githubFacade.clearFilters()
+                            }
+                        }
                     }
                 }
             }
 
             SectionCard {
                 Layout.fillWidth: true
-                Layout.minimumWidth: 380
-                Layout.preferredWidth: 540
+                Layout.minimumWidth: 420
+                Layout.preferredWidth: 580
                 Layout.fillHeight: true
                 tokens: root.tokens
                 heading: "项目列表"
@@ -475,9 +483,9 @@ Item {
             }
 
             SectionCard {
-                Layout.minimumWidth: 340
-                Layout.preferredWidth: 352
-                Layout.maximumWidth: 372
+                Layout.minimumWidth: 320
+                Layout.preferredWidth: 338
+                Layout.maximumWidth: 352
                 Layout.fillHeight: true
                 tokens: root.tokens
                 heading: "详情面板"
