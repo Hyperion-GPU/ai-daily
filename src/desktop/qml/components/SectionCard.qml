@@ -9,7 +9,7 @@ Item {
     property string heading: ""
     property string supportingText: ""
     default property alias contentData: contentColumn.data
-    readonly property int cardPadding: 18
+    readonly property int cardPadding: 16
     readonly property int maxImplicitWidth: 480
 
     implicitWidth: Math.min(layoutColumn.implicitWidth + cardPadding * 2, maxImplicitWidth)
@@ -28,17 +28,17 @@ Item {
         id: layoutColumn
         anchors.fill: parent
         anchors.margins: root.cardPadding
-        spacing: 12
+        spacing: 10
 
         ColumnLayout {
-            spacing: 6
+            spacing: 4
             Layout.fillWidth: true
 
             Label {
                 text: root.heading
                 color: root.tokens ? root.tokens.inkStrong : "#2d251d"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 16
+                font.pixelSize: 15
                 font.weight: Font.Medium
                 Layout.fillWidth: true
             }
@@ -48,7 +48,8 @@ Item {
                 text: root.supportingText
                 color: root.tokens ? root.tokens.inkMuted : "#6f6558"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 12
+                font.pixelSize: 11
+                lineHeight: 1.25
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
@@ -56,7 +57,7 @@ Item {
 
         ColumnLayout {
             id: contentColumn
-            spacing: 10
+            spacing: 8
             Layout.fillWidth: true
         }
     }

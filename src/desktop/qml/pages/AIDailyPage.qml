@@ -23,7 +23,6 @@ Item {
     ]
     readonly property var selectedArticle: digestFacade ? digestFacade.selectedArticle : ({})
     readonly property var articleTags: selectedArticle && selectedArticle.tags ? selectedArticle.tags : []
-    readonly property bool compactFilters: root.width < 1200
 
     objectName: "aiDailyWorkspace"
 
@@ -43,7 +42,7 @@ Item {
         return digestFacade.selectedTags.indexOf(tag) >= 0
     }
 
-    function formatStatusText() {
+    function statusText() {
         if (!digestFacade) {
             return ""
         }
@@ -57,15 +56,15 @@ Item {
             return digestFacade.noticeMessage
         }
         if (digestFacade.stale) {
-            return "配置已变化，当前工作区将在刷新后同步。"
+            return "筛选条件已改变，刷新后会同步最新的阅读结果。"
         }
         return ""
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: root.tokens ? root.tokens.pagePadding : 32
-        spacing: root.tokens ? root.tokens.sectionGap : 20
+        anchors.margins: root.tokens ? root.tokens.pagePadding : 30
+        spacing: root.tokens ? root.tokens.sectionGap : 16
 
         RowLayout {
             Layout.fillWidth: true
@@ -74,9 +73,29 @@ Item {
             PageHeader {
                 Layout.fillWidth: true
                 tokens: root.tokens
-                eyebrow: "AI Daily / Digest"
-                title: "AI Daily"
-                subtitle: "把归档、筛选、阅读与抓取放回同一张安静的编辑式工作台。"
+                eyebrow: "AI DAILY / DIGEST"
+                title: "AI 日报"
+                subtitle: "筛选、浏览每天的 AI 线索，把信息整合在一个安静且可控的阅读桌面上。"
+            }
+
+            TextField {
+                id: searchField
+                Layout.preferredWidth: 210
+                placeholderText: "搜索文章/项目…"
+                selectByMouse: true
+                onTextEdited: if (digestFacade) digestFacade.setSearchQuery(text)
+                Binding {
+                    target: searchField
+                    property: "text"
+                    value: digestFacade ? digestFacade.searchQuery : ""
+                    when: !searchField.activeFocus
+                }
+                background: Rectangle {
+                    radius: root.tokens ? root.tokens.controlRadius : 10
+                    color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                    border.width: 1
+                    border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                }
             }
 
             Button {
@@ -85,14 +104,41 @@ Item {
                 text: "刷新"
                 enabled: digestFacade ? !digestFacade.busy : false
                 onClicked: if (digestFacade) digestFacade.reload()
+                contentItem: Label {
+                    text: reloadButton.text
+                    color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                    font.family: root.tokens ? root.tokens.sansFamily : font.family
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    radius: root.tokens ? root.tokens.controlRadius : 10
+                    color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                    border.width: 1
+                    border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                }
             }
 
             Button {
                 id: fetchButton
                 objectName: "aiDailyFetchButton"
-                text: digestFacade && digestFacade.busy ? "抓取中..." : "抓取日报"
+                text: digestFacade && digestFacade.busy ? "抓取中…" : "更新今日日报"
                 enabled: digestFacade ? !digestFacade.busy : false
                 onClicked: if (digestFacade) digestFacade.runFetch()
+                contentItem: Label {
+                    text: fetchButton.text
+                    color: "white"
+                    font.family: root.tokens ? root.tokens.sansFamily : font.family
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    radius: root.tokens ? root.tokens.controlRadius : 10
+                    color: root.tokens ? root.tokens.accentFill : "#B9916E"
+                }
             }
         }
 
@@ -103,211 +149,199 @@ Item {
             tokens: root.tokens
             busy: digestFacade ? digestFacade.busy : false
             tone: digestFacade && digestFacade.errorMessage.length > 0 ? "error" : "neutral"
-            text: root.formatStatusText()
+            text: root.statusText()
         }
 
         Rectangle {
-            id: summaryBar
-            objectName: "aiDailySummaryBar"
             Layout.fillWidth: true
-            radius: root.tokens ? root.tokens.radiusMedium : 20
-            color: root.tokens ? root.tokens.surfaceMuted : "#F1E9DF"
-            border.width: 1
-            border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
-            implicitHeight: summaryColumn.implicitHeight + 28
+            color: "transparent"
+            implicitHeight: summaryRow.implicitHeight + 18
 
             ColumnLayout {
-                id: summaryColumn
                 anchors.fill: parent
-                anchors.margins: 16
-                spacing: 14
+                spacing: 10
 
                 RowLayout {
+                    id: summaryRow
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: 18
+
+                    Label {
+                        text: digestFacade && digestFacade.currentDate.length > 0
+                            ? digestFacade.currentDate
+                            : "尚未选择归档"
+                        color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 15
+                        color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                    }
 
                     MetricPill {
                         tokens: root.tokens
-                        label: "归档"
+                        label: "收录文章"
                         value: digestFacade ? String(digestFacade.archiveCount) : "0"
                     }
 
                     MetricPill {
                         tokens: root.tokens
-                        label: "原始"
+                        label: "今日新增"
                         value: digestFacade ? String(digestFacade.currentDateArticleCount) : "0"
                     }
 
                     MetricPill {
                         tokens: root.tokens
-                        label: "当前"
+                        label: "当前筛选"
                         value: digestFacade ? String(digestFacade.filteredArticleCount) : "0"
                     }
 
                     Item { Layout.fillWidth: true }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(225 / 255, 215 / 255, 202 / 255, 0.7)
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            color: "transparent"
+            implicitHeight: filterColumn.implicitHeight + 10
+
+            ColumnLayout {
+                id: filterColumn
+                anchors.fill: parent
+                spacing: 10
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Flow {
+                        Layout.fillWidth: true
+                        width: parent.width
+                        spacing: 6
+
+                        Repeater {
+                            model: root.categoryOptions
+
+                            TagChip {
+                                required property var modelData
+
+                                tokens: root.tokens
+                                label: modelData.text
+                                selected: digestFacade ? digestFacade.categoryFilter === modelData.value : modelData.value === ""
+                                onClicked: if (digestFacade) digestFacade.setCategoryFilter(modelData.value)
+                            }
+                        }
+                    }
 
                     Button {
+                        id: clearFiltersButton
                         text: "清空筛选"
                         enabled: digestFacade ? !digestFacade.busy : false
                         onClicked: if (digestFacade) digestFacade.clearFilters()
+                        contentItem: Label {
+                            text: clearFiltersButton.text
+                            color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                            font.family: root.tokens ? root.tokens.sansFamily : font.family
+                            font.pixelSize: 11
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            radius: root.tokens ? root.tokens.controlRadius : 10
+                            color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                            border.width: 1
+                            border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                        }
                     }
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    text: digestFacade && digestFacade.summaryText.length > 0
-                        ? digestFacade.summaryText
-                        : "选择归档后，这里会同步当前日期与筛选上下文。"
-                    color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                    font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 14
 
-                    FilterGroup {
-                        Layout.preferredWidth: 180
-                        tokens: root.tokens
-                        title: "分类"
-
-                        ComboBox {
-                            id: categoryCombo
-                            Layout.fillWidth: true
-                            model: root.categoryOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (digestFacade) digestFacade.setCategoryFilter(currentValue)
-                            Binding {
-                                target: categoryCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.categoryOptions, digestFacade ? digestFacade.categoryFilter : "")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.preferredWidth: 180
-                        tokens: root.tokens
-                        title: "重要度"
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            Slider {
-                                id: importanceSlider
-                                Layout.fillWidth: true
-                                from: 1
-                                to: 5
-                                stepSize: 1
-                                snapMode: Slider.SnapAlways
-                                onMoved: if (digestFacade) digestFacade.setMinImportance(Math.round(value))
-                                Binding {
-                                    target: importanceSlider
-                                    property: "value"
-                                    value: digestFacade ? digestFacade.minImportance : 1
-                                    when: !importanceSlider.pressed
-                                }
-                            }
-
-                            Label {
-                                text: digestFacade ? String(digestFacade.minImportance) + "/5" : "1/5"
-                                color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                                font.family: root.tokens ? root.tokens.sansFamily : font.family
-                                font.pixelSize: 12
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.preferredWidth: 160
-                        tokens: root.tokens
-                        title: "排序"
-
-                        ComboBox {
-                            id: sortCombo
-                            Layout.fillWidth: true
-                            model: root.sortOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (digestFacade) digestFacade.setSortKey(currentValue)
-                            Binding {
-                                target: sortCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.sortOptions, digestFacade ? digestFacade.sortKey : "importance")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
+                    Flow {
+                        id: tagFlow
                         Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "搜索"
+                        width: parent.width
+                        spacing: 6
 
-                        TextField {
-                            id: searchField
-                            Layout.fillWidth: true
-                            placeholderText: "搜索标题或摘要"
-                            onTextEdited: if (digestFacade) digestFacade.setSearchQuery(text)
-                            Binding {
-                                target: searchField
-                                property: "text"
-                                value: digestFacade ? digestFacade.searchQuery : ""
-                                when: !searchField.activeFocus
+                        Repeater {
+                            model: digestFacade ? digestFacade.availableTags : []
+
+                            TagChip {
+                                required property var modelData
+
+                                readonly property string tagValue: String(modelData.value || modelData)
+
+                                tokens: root.tokens
+                                label: String(modelData.label || modelData.value || modelData)
+                                selected: root.hasSelectedTag(tagValue)
+                                muted: !root.hasSelectedTag(tagValue)
+                                onClicked: if (digestFacade) digestFacade.toggleTagSelection(tagValue)
                             }
                         }
                     }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
 
                     Label {
-                        text: "标签"
+                        text: "重要度 ≥"
                         color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                        font.pixelSize: 11
+                    }
+
+                    Slider {
+                        id: importanceSlider
+                        Layout.preferredWidth: 90
+                        from: 1
+                        to: 5
+                        stepSize: 1
+                        snapMode: Slider.SnapAlways
+                        onMoved: if (digestFacade) digestFacade.setMinImportance(Math.round(value))
+                        Binding {
+                            target: importanceSlider
+                            property: "value"
+                            value: digestFacade ? digestFacade.minImportance : 1
+                            when: !importanceSlider.pressed
+                        }
+                    }
+
+                    Label {
+                        text: digestFacade ? String(digestFacade.minImportance) : "1"
+                        color: root.tokens ? root.tokens.inkStrong : "#2E261D"
                         font.family: root.tokens ? root.tokens.sansFamily : font.family
                         font.pixelSize: 12
                     }
 
-                    Item {
-                        id: tagFlowHolder
-                        objectName: "aiDailyTagFlow"
-                        Layout.fillWidth: true
-                        implicitHeight: Math.max(tagFlow.implicitHeight, 34)
-
-                        Flow {
-                            id: tagFlow
-                            width: parent.width
-                            spacing: 8
-
-                            Repeater {
-                                model: digestFacade ? digestFacade.availableTags : []
-
-                                TagChip {
-                                    required property var modelData
-
-                                    readonly property string tagValue: String(modelData.value || modelData)
-
-                                    tokens: root.tokens
-                                    label: String(modelData.label || modelData.value || modelData)
-                                    selected: root.hasSelectedTag(tagValue)
-                                    onClicked: if (digestFacade) digestFacade.toggleTagSelection(tagValue)
-                                }
-                            }
-
-                            Label {
-                                visible: digestFacade && digestFacade.availableTags.length === 0
-                                text: "当前归档暂无可用标签。"
-                                color: root.tokens ? root.tokens.inkSoft : "#998C7C"
-                                font.family: root.tokens ? root.tokens.sansFamily : font.family
-                                font.pixelSize: 12
-                            }
+                    ComboBox {
+                        id: sortCombo
+                        Layout.preferredWidth: 116
+                        model: root.sortOptions
+                        textRole: "text"
+                        valueRole: "value"
+                        onActivated: if (digestFacade) digestFacade.setSortKey(currentValue)
+                        Binding {
+                            target: sortCombo
+                            property: "currentIndex"
+                            value: root.indexFor(root.sortOptions, digestFacade ? digestFacade.sortKey : "importance")
                         }
                     }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(225 / 255, 215 / 255, 202 / 255, 0.7)
                 }
             }
         }
@@ -318,7 +352,7 @@ Item {
             spacing: 16
 
             SectionCard {
-                Layout.preferredWidth: 260
+                Layout.preferredWidth: 188
                 Layout.fillHeight: true
                 tokens: root.tokens
                 heading: "归档"
@@ -358,158 +392,198 @@ Item {
                 }
             }
 
-            SectionCard {
+            Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                tokens: root.tokens
-                heading: "文章列表"
-                supportingText: "让列表承担筛选与浏览，让右侧承担阅读与判断。"
+                radius: root.tokens ? root.tokens.panelRadius : 16
+                color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                border.width: 1
+                border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
 
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 0
 
-                    ListView {
-                        id: articleList
-                        objectName: "aiDailyArticleList"
-                        anchors.fill: parent
-                        model: digestFacade ? digestFacade.articleModel : null
-                        spacing: 10
-                        clip: true
-
-                        delegate: ArticleListDelegate {
-                            width: ListView.view.width
-                            tokens: root.tokens
-                            title: model.title
-                            sourceName: model.sourceName
-                            sourceCategoryLabel: model.sourceCategoryLabel
-                            publishedLabel: model.publishedLabel
-                            summaryZh: model.summaryZh
-                            importance: model.importance
-                            tags: model.tags
-                            isSelected: model.isSelected
-                            onClicked: if (digestFacade) digestFacade.selectArticleRow(index)
-                        }
-                    }
-
-                    Label {
-                        anchors.centerIn: parent
-                        visible: articleList.count === 0
-                        text: digestFacade && digestFacade.currentDate.length > 0
-                            ? "当前筛选下没有结果。"
-                            : "选择一个归档日期后开始阅读。"
-                        color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                        font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    }
-                }
-            }
-
-            SectionCard {
-                Layout.preferredWidth: 390
-                Layout.fillHeight: true
-                tokens: root.tokens
-                heading: "阅读面"
-                supportingText: "先读摘要，再决定是否打开原文继续追踪。"
-
-                ScrollView {
-                    objectName: "aiDailyDetailPanel"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-
-                    ColumnLayout {
-                        width: parent.width
-                        spacing: 14
-
-                        Label {
-                            Layout.fillWidth: true
-                            text: digestFacade && digestFacade.hasSelection
-                                ? String(root.selectedArticle.title || "未命名文章")
-                                : (digestFacade && digestFacade.currentDate.length > 0
-                                    ? "请选择一篇文章"
-                                    : "暂无日报归档")
-                            color: root.tokens ? root.tokens.inkStrong : "#2E261D"
-                            font.family: root.tokens ? root.tokens.serifFamily : font.family
-                            font.pixelSize: 24
-                            font.weight: Font.DemiBold
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Label {
-                            Layout.fillWidth: true
-                            text: digestFacade && digestFacade.hasSelection
-                                ? [String(root.selectedArticle.sourceName || ""), String(root.selectedArticle.publishedLabel || "")]
-                                    .filter(Boolean)
-                                    .join(" · ")
-                                : (digestFacade && digestFacade.currentDate.length > 0
-                                    ? "右侧阅读面会跟随列表选中项更新。"
-                                    : "抓取一次日报后，这里会形成可检索的阅读归档。")
-                            color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                            font.family: root.tokens ? root.tokens.sansFamily : font.family
-                            font.pixelSize: 13
-                            wrapMode: Text.WordWrap
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            MetricPill {
-                                tokens: root.tokens
-                                label: "分类"
-                                value: digestFacade && digestFacade.hasSelection
-                                    ? String(root.selectedArticle.sourceCategoryLabel || "未分类")
-                                    : "-"
-                            }
-
-                            MetricPill {
-                                tokens: root.tokens
-                                label: "重要度"
-                                value: digestFacade && digestFacade.hasSelection
-                                    ? String(root.selectedArticle.importance || 0) + "/5"
-                                    : "-"
-                            }
-                        }
-
-                        DetailField {
-                            tokens: root.tokens
-                            label: "来源"
-                            value: digestFacade && digestFacade.hasSelection
-                                ? String(root.selectedArticle.sourceName || "")
-                                : ""
-                        }
-
-                        DetailField {
-                            tokens: root.tokens
-                            label: "发布时间"
-                            value: digestFacade && digestFacade.hasSelection
-                                ? String(root.selectedArticle.publishedLabel || "")
-                                : ""
-                        }
-
-                        DetailField {
-                            tokens: root.tokens
-                            label: "分类"
-                            value: digestFacade && digestFacade.hasSelection
-                                ? String(root.selectedArticle.sourceCategoryLabel || "")
-                                : ""
-                        }
+                    Item {
+                        Layout.preferredWidth: 430
+                        Layout.fillHeight: true
 
                         ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
+                            anchors.fill: parent
+                            anchors.margins: 0
+                            spacing: 0
 
                             Label {
-                                text: "标签"
+                                Layout.fillWidth: true
+                                leftPadding: 24
+                                rightPadding: 24
+                                topPadding: 18
+                                bottomPadding: 12
+                                text: "阅读清单 · " + (digestFacade ? String(digestFacade.articleModel.count) : "0") + " 篇"
                                 color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                                font.pixelSize: 12
+                                font.pixelSize: 11
+                                font.letterSpacing: 0.3
+                            }
+
+                            ListView {
+                                id: articleList
+                                objectName: "aiDailyArticleList"
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.leftMargin: 14
+                                Layout.rightMargin: 14
+                                Layout.bottomMargin: 14
+                                model: digestFacade ? digestFacade.articleModel : null
+                                spacing: 0
+                                clip: true
+
+                                delegate: ArticleListDelegate {
+                                    width: ListView.view.width
+                                    tokens: root.tokens
+                                    title: model.title
+                                    sourceName: model.sourceName
+                                    sourceCategoryLabel: model.sourceCategoryLabel
+                                    publishedLabel: model.publishedLabel
+                                    summaryZh: model.summaryZh
+                                    importance: model.importance
+                                    tags: model.tags
+                                    isSelected: model.isSelected
+                                    onClicked: if (digestFacade) digestFacade.selectArticleRow(index)
+                                }
+                            }
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: articleList.count === 0
+                            text: digestFacade && digestFacade.currentDate.length > 0
+                                ? "当前筛选下没有结果。"
+                                : "选择一个归档日期后开始阅读。"
+                            color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                            font.family: root.tokens ? root.tokens.sansFamily : font.family
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.fillHeight: true
+                        color: Qt.rgba(225 / 255, 215 / 255, 202 / 255, 0.7)
+                    }
+
+                    ScrollView {
+                        id: aiDetailScroll
+                        objectName: "aiDailyDetailPanel"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+
+                        ColumnLayout {
+                            id: detailColumn
+                            width: Math.max(Math.min(aiDetailScroll.availableWidth - 64, 680), 280)
+                            x: Math.max((aiDetailScroll.availableWidth - width) / 2, 32)
+                            y: 30
+                            spacing: 16
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: digestFacade && digestFacade.hasSelection
+                                    ? [String(root.selectedArticle.sourceName || ""),
+                                       String(root.selectedArticle.publishedLabel || "")]
+                                          .filter(Boolean)
+                                          .join(" / ")
+                                    : "尚未选择文章"
+                                color: Qt.rgba(110 / 255, 101 / 255, 92 / 255, 0.7)
+                                font.family: root.tokens ? root.tokens.sansFamily : font.family
+                                font.pixelSize: 11
+                                font.capitalization: Font.AllUppercase
+                                font.letterSpacing: 0.3
+                            }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: digestFacade && digestFacade.hasSelection
+                                    ? String(root.selectedArticle.title || "未命名文章")
+                                    : "请选择一篇文章"
+                                color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                                font.family: root.tokens ? root.tokens.serifFamily : font.family
+                                font.pixelSize: 22
+                                font.weight: Font.Medium
+                                wrapMode: Text.WordWrap
+                            }
+
+                            DetailField {
+                                Layout.fillWidth: true
+                                tokens: root.tokens
+                                label: "Source"
+                                value: digestFacade && digestFacade.hasSelection ? String(root.selectedArticle.sourceName || "") : ""
+                            }
+
+                            DetailField {
+                                Layout.fillWidth: true
+                                tokens: root.tokens
+                                label: "Link"
+                                value: digestFacade && digestFacade.hasSelection ? String(root.selectedArticle.url || "") : ""
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 12
+
+                                DetailField {
+                                    Layout.fillWidth: true
+                                    tokens: root.tokens
+                                    label: "Topics"
+                                    value: digestFacade && digestFacade.hasSelection
+                                        ? String(root.selectedArticle.sourceCategoryLabel || "未分类")
+                                        : ""
+                                }
+
+                                ColumnLayout {
+                                    spacing: 4
+
+                                    Label {
+                                        text: "Importance"
+                                        color: root.tokens ? root.tokens.inkSoft : "#998C7C"
+                                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                                        font.pixelSize: 10
+                                        font.letterSpacing: 0.4
+                                    }
+
+                                    RowLayout {
+                                        spacing: 6
+
+                                        Repeater {
+                                            model: 5
+
+                                            Rectangle {
+                                                required property int index
+
+                                                Layout.preferredWidth: 5
+                                                Layout.preferredHeight: 5
+                                                radius: 3
+                                                color: index < (digestFacade && digestFacade.hasSelection ? Number(root.selectedArticle.importance || 0) : 0)
+                                                    ? (root.tokens ? root.tokens.accentFill : "#B9916E")
+                                                    : (root.tokens ? root.tokens.borderSubtle : "#E1D7CA")
+                                            }
+                                        }
+
+                                        Label {
+                                            text: digestFacade && digestFacade.hasSelection
+                                                ? String(root.selectedArticle.importance || 0) + "/5"
+                                                : "-"
+                                            color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                                            font.family: root.tokens ? root.tokens.sansFamily : font.family
+                                            font.pixelSize: 12
+                                        }
+                                    }
+                                }
                             }
 
                             Flow {
                                 Layout.fillWidth: true
                                 width: parent.width
-                                spacing: 8
+                                spacing: 6
 
                                 Repeater {
                                     model: root.articleTags
@@ -523,61 +597,66 @@ Item {
                                         muted: true
                                     }
                                 }
-
-                                Label {
-                                    visible: digestFacade ? digestFacade.hasSelection && root.articleTags.length === 0 : true
-                                    text: digestFacade && digestFacade.hasSelection ? "暂无标签。" : "未选择文章。"
-                                    color: root.tokens ? root.tokens.inkSoft : "#998C7C"
-                                    font.family: root.tokens ? root.tokens.sansFamily : font.family
-                                    font.pixelSize: 12
-                                }
                             }
-                        }
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            radius: root.tokens ? root.tokens.controlRadius : 14
-                            color: root.tokens ? root.tokens.surfaceBase : "#FBF8F2"
-                            border.width: 1
-                            border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
-                            implicitHeight: summaryLabel.implicitHeight + 24
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 1
+                                color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                            }
 
                             Label {
-                                id: summaryLabel
-                                anchors.fill: parent
-                                anchors.margins: 12
+                                Layout.fillWidth: true
                                 text: digestFacade && digestFacade.hasSelection
                                     ? String(root.selectedArticle.summaryZh || "暂无中文摘要。")
-                                    : (digestFacade && digestFacade.currentDate.length > 0
-                                        ? "当前没有可展示的摘要内容。"
-                                        : "抓取并选择文章后，这里会展示中文摘要。")
+                                    : "抓取并选择文章后，这里会显示摘要正文。"
                                 color: root.tokens ? root.tokens.inkStrong : "#2E261D"
                                 font.family: root.tokens ? root.tokens.sansFamily : font.family
                                 font.pixelSize: 14
+                                lineHeight: 1.85
                                 wrapMode: Text.WordWrap
                             }
-                        }
 
-                        Label {
-                            Layout.fillWidth: true
-                            text: "先浏览摘要，再决定是否打开原文继续阅读。"
-                            color: root.tokens ? root.tokens.inkSoft : "#998C7C"
-                            font.family: root.tokens ? root.tokens.sansFamily : font.family
-                            font.pixelSize: 12
-                            wrapMode: Text.WordWrap
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 1
+                                color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                Button {
+                                    id: openArticleButton
+                                    objectName: "aiDailyOpenArticleButton"
+                                    text: "阅读全文"
+                                    enabled: digestFacade
+                                        ? digestFacade.hasSelection && String(root.selectedArticle.url || "").length > 0
+                                        : false
+                                    onClicked: if (digestFacade) digestFacade.openSelectedArticle()
+                                    contentItem: Label {
+                                        text: openArticleButton.text
+                                        color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                                        font.pixelSize: 12
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    background: Rectangle {
+                                        radius: root.tokens ? root.tokens.controlRadius : 10
+                                        color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                                        border.width: 1
+                                        border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                                    }
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true
+                                }
+                            }
                         }
                     }
-                }
-
-                Button {
-                    id: openArticleButton
-                    objectName: "aiDailyOpenArticleButton"
-                    Layout.alignment: Qt.AlignLeft
-                    text: "打开原文"
-                    enabled: digestFacade
-                        ? digestFacade.hasSelection && String(root.selectedArticle.url || "").length > 0
-                        : false
-                    onClicked: if (digestFacade) digestFacade.openSelectedArticle()
                 }
             }
         }

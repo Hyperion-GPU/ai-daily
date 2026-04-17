@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Item {
     id: root
     objectName: "desktopShellRoot"
+
     property QtObject shellFacade: null
     property QtObject settingsFacade: null
     property QtObject githubFacade: null
@@ -21,84 +22,54 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        spacing: 20
+        spacing: 0
 
-        Pane {
+        Rectangle {
             id: navigationPane
             objectName: "navigationPane"
-            Layout.preferredWidth: 260
+            Layout.preferredWidth: 200
             Layout.fillHeight: true
-            padding: 20
+            color: tokens.surfaceMuted
+            border.width: 0
 
-            background: Rectangle {
-                color: tokens.surfaceRaised
-                radius: tokens.radiusLarge
-                border.color: tokens.borderSubtle
+            Rectangle {
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                width: 1
+                color: tokens.borderSubtle
             }
 
             ColumnLayout {
                 anchors.fill: parent
-                spacing: 18
+                anchors.margins: 18
+                spacing: 12
 
-                RowLayout {
-                    spacing: 14
-
-                    Rectangle {
-                        Layout.preferredWidth: 44
-                        Layout.preferredHeight: 44
-                        radius: 14
-                        color: tokens.accentSoft
-
-                        Image {
-                            anchors.centerIn: parent
-                            width: 28
-                            height: 28
-                            fillMode: Image.PreserveAspectFit
-                            source: "qrc:/qt/qml/AIDaily/Desktop/assets/branding/ai-daily-icon.png"
-                        }
-                    }
-
-                    ColumnLayout {
-                        spacing: 2
-
-                        Label {
-                            text: "AI Daily"
-                            font.family: tokens.serifFamily
-                            font.pixelSize: 24
-                            font.weight: Font.DemiBold
-                            color: tokens.textStrong
-                        }
-
-                        Label {
-                            text: "QML migration workbench"
-                            font.family: tokens.sansFamily
-                            font.pixelSize: 12
-                            color: tokens.textMuted
-                        }
-                    }
-                }
-
-                Rectangle {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: tokens.borderSubtle
-                    opacity: 0.9
-                }
+                    spacing: 3
 
-                Label {
-                    text: "工作区"
-                    font.family: tokens.sansFamily
-                    font.pixelSize: 12
-                    font.letterSpacing: 1.2
-                    color: tokens.textMuted
+                    Label {
+                        text: "信息流"
+                        color: tokens.textStrong
+                        font.family: tokens.sansFamily
+                        font.pixelSize: 14
+                        font.weight: Font.Medium
+                    }
+
+                    Label {
+                        text: "Research Desktop"
+                        color: tokens.textMuted
+                        font.family: tokens.sansFamily
+                        font.pixelSize: 11
+                    }
                 }
 
                 ColumnLayout {
                     id: navColumn
                     objectName: "workspaceNavList"
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: 2
 
                     Repeater {
                         model: root.shellFacade ? root.shellFacade.workspaces : []
@@ -108,6 +79,7 @@ Item {
 
                             Layout.fillWidth: true
                             objectName: "workspaceNavButton_" + modelData.key
+                            tokens: tokens
                             label: modelData.title
                             subtitle: modelData.subtitle
                             iconSource: modelData.iconSource
@@ -121,133 +93,73 @@ Item {
                     Layout.fillHeight: true
                 }
 
-                Pane {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    padding: 16
+                    spacing: 4
 
-                    background: Rectangle {
-                        color: tokens.surfaceSunken
-                        radius: tokens.radiusMedium
-                        border.color: tokens.borderSubtle
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: tokens.borderSubtle
                     }
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 8
-
-                        Label {
-                            text: "阶段 2 目标"
-                            font.family: tokens.sansFamily
-                            font.pixelSize: 13
-                            font.weight: Font.DemiBold
-                            color: tokens.textStrong
-                        }
-
-                        Label {
-                            text: "先固定资源系统、QML 宿主和测试分层，再逐页接入 facade / model / command gateway。"
-                            wrapMode: Text.WordWrap
-                            font.family: tokens.sansFamily
-                            font.pixelSize: 12
-                            color: tokens.textMuted
-                        }
+                    Label {
+                        text: "v0.1 · 本地运行"
+                        color: Qt.rgba(110 / 255, 101 / 255, 92 / 255, 0.6)
+                        font.family: tokens.sansFamily
+                        font.pixelSize: 11
                     }
                 }
             }
         }
 
-        Pane {
+        Item {
             id: workspacePane
             objectName: "workspacePane"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            padding: 24
 
-            background: Rectangle {
-                color: tokens.surfaceBase
-                radius: tokens.radiusLarge
-                border.color: tokens.borderSubtle
+            Label {
+                id: workspaceTitleLabel
+                objectName: "workspaceTitleLabel"
+                visible: false
+                text: {
+                    const item = root.shellFacade ? root.shellFacade.workspace(root.shellFacade.currentWorkspace) : ({})
+                    return item.title || "AI Daily"
+                }
             }
 
-            ColumnLayout {
+            Label {
+                id: workspaceSubtitleLabel
+                objectName: "workspaceSubtitleLabel"
+                visible: false
+                text: {
+                    const item = root.shellFacade ? root.shellFacade.workspace(root.shellFacade.currentWorkspace) : ({})
+                    return item.description || ""
+                }
+            }
+
+            StackLayout {
+                id: workspaceStack
+                objectName: "workspaceStack"
                 anchors.fill: parent
-                spacing: 22
+                currentIndex: root.shellFacade ? root.shellFacade.currentIndex : 0
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 20
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Label {
-                            id: workspaceTitleLabel
-                            objectName: "workspaceTitleLabel"
-                            text: {
-                                const item = root.shellFacade ? root.shellFacade.workspace(root.shellFacade.currentWorkspace) : ({})
-                                return item.title || "AI Daily"
-                            }
-                            font.family: tokens.serifFamily
-                            font.pixelSize: 34
-                            font.weight: Font.DemiBold
-                            color: tokens.textStrong
-                        }
-
-                        Label {
-                            objectName: "workspaceSubtitleLabel"
-                            text: {
-                                const item = root.shellFacade ? root.shellFacade.workspace(root.shellFacade.currentWorkspace) : ({})
-                                return item.description || ""
-                            }
-                            Layout.fillWidth: true
-                            wrapMode: Text.WordWrap
-                            font.family: tokens.sansFamily
-                            font.pixelSize: 14
-                            color: tokens.textMuted
-                        }
-                    }
-
-                    Pane {
-                        padding: 14
-
-                        background: Rectangle {
-                            color: tokens.accentSoft
-                            radius: tokens.radiusMedium
-                        }
-
-                        Label {
-                            text: "Qt Quick Controls 2"
-                            font.family: tokens.sansFamily
-                            font.pixelSize: 12
-                            font.weight: Font.DemiBold
-                            color: tokens.accentText
-                        }
-                    }
+                AIDailyPage {
+                    tokens: tokens
+                    digestFacade: root.digestFacade
                 }
 
-                StackLayout {
-                    id: workspaceStack
-                    objectName: "workspaceStack"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    currentIndex: root.shellFacade ? root.shellFacade.currentIndex : 0
+                GithubTrendsPage {
+                    objectName: "githubTrendsPage"
+                    tokens: tokens
+                    githubFacade: root.githubFacade
+                }
 
-                    AIDailyPage {
-                        tokens: tokens
-                        digestFacade: root.digestFacade
-                    }
-
-                    GithubTrendsPage {
-                        objectName: "githubTrendsPage"
-                        tokens: tokens
-                        githubFacade: root.githubFacade
-                    }
-
-                    SettingsPage {
-                        objectName: "settingsPage"
-                        tokens: tokens
-                        settingsFacade: root.settingsFacade
-                    }
+                SettingsPage {
+                    objectName: "settingsPage"
+                    tokens: tokens
+                    settingsFacade: root.settingsFacade
                 }
             }
         }

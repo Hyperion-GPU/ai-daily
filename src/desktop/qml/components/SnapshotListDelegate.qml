@@ -18,28 +18,28 @@ Rectangle {
     radius: tokens ? tokens.controlRadius : 14
     color: isSelected
         ? (tokens ? tokens.accentSoft : "#E6D4BF")
-        : (tokens ? tokens.surfaceMuted : "#F1E9DF")
+        : (tokens ? tokens.surfaceBase : "#F1E9DF")
     border.width: 1
     border.color: isSelected
         ? (tokens ? tokens.accentText : "#73491E")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitHeight: contentColumn.implicitHeight + 16
+    implicitHeight: contentColumn.implicitHeight + 14
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
         anchors.margins: 10
-        spacing: 6
+        spacing: 5
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 6
 
             Label {
                 text: root.label
                 color: root.tokens ? root.tokens.inkStrong : "#2E261D"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 12
+                font.pixelSize: 11
                 font.weight: Font.Medium
             }
 
@@ -58,7 +58,7 @@ Rectangle {
                     text: "Latest"
                     color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                     font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    font.pixelSize: 9
+                    font.pixelSize: 8
                 }
             }
 
@@ -71,14 +71,14 @@ Rectangle {
                 : root.projectCount + " projects"
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 11
+            font.pixelSize: 10
         }
 
         Label {
             text: root.generatedAt.length > 0 ? root.generatedAt : "Generated time pending"
             color: root.tokens ? root.tokens.inkSoft : "#998C7C"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 10
+            font.pixelSize: 9
             elide: Text.ElideRight
             Layout.fillWidth: true
         }
@@ -86,6 +86,7 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.clicked()
     }

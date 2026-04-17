@@ -19,25 +19,25 @@ Rectangle {
 
     radius: tokens ? tokens.controlRadius : 14
     color: isSelected
-        ? (tokens ? tokens.surfaceRaised : "#F7F1E8")
+        ? (tokens ? tokens.surfaceInteractive : "#F7F1E8")
         : (tokens ? tokens.surfaceBase : "#FBF8F2")
     border.width: 1
     border.color: isSelected
         ? (tokens ? tokens.borderStrong : "#73491E")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitHeight: contentColumn.implicitHeight + 20
+    implicitHeight: contentColumn.implicitHeight + 18
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 8
+        anchors.margins: 13
+        spacing: 7
 
         Label {
             text: root.title.length > 0 ? root.title : "Untitled article"
             color: root.tokens ? root.tokens.inkStrong : "#2E261D"
             font.family: root.tokens ? root.tokens.serifFamily : font.family
-            font.pixelSize: 17
+            font.pixelSize: 16
             font.weight: Font.Medium
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
@@ -50,7 +50,7 @@ Rectangle {
             visible: text.length > 0
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 11
+            font.pixelSize: 10
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
@@ -59,7 +59,8 @@ Rectangle {
             text: root.summaryZh.length > 0 ? root.summaryZh : "No summary yet."
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 12
+            font.pixelSize: 11
+            lineHeight: 1.28
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
             maximumLineCount: 3
@@ -68,7 +69,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 6
 
             TagChip {
                 tokens: root.tokens
@@ -106,6 +107,7 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.clicked()
     }

@@ -11,7 +11,7 @@ Item {
     property QtObject githubFacade
 
     readonly property var categoryOptions: [
-        { text: "All", value: "" },
+        { text: "全部", value: "" },
         { text: "LLM", value: "llm" },
         { text: "Agent", value: "agent" },
         { text: "CV", value: "cv" },
@@ -21,22 +21,21 @@ Item {
         { text: "General", value: "general" }
     ]
     readonly property var sortOptions: [
-        { text: "Stars", value: "stars" },
-        { text: "Stars Today", value: "stars_today" },
-        { text: "Stars Weekly", value: "stars_weekly" },
-        { text: "Recently Updated", value: "updated" }
+        { text: "按 Stars", value: "stars" },
+        { text: "按今日新增", value: "stars_today" },
+        { text: "按周增量", value: "stars_weekly" },
+        { text: "按更新时间", value: "updated" }
     ]
     readonly property var trendOptions: [
-        { text: "All", value: "" },
+        { text: "全部", value: "" },
         { text: "Hot", value: "hot" },
         { text: "Rising", value: "rising" },
         { text: "Stable", value: "stable" }
     ]
-    readonly property var languageOptions: [{ label: "All", value: "", count: 0 }].concat(
+    readonly property var languageOptions: [{ label: "全部", value: "", count: 0 }].concat(
         githubFacade ? githubFacade.availableLanguages : []
     )
     readonly property var selectedProject: githubFacade ? githubFacade.projectModel.selectedItem : ({})
-    readonly property bool compactFilters: root.width < 1240
 
     objectName: "githubWorkspace"
 
@@ -56,10 +55,26 @@ Item {
         return githubFacade.selectedLanguages[0]
     }
 
+    function statusText() {
+        if (!githubFacade) {
+            return ""
+        }
+        if (githubFacade.errorMessage.length > 0) {
+            return githubFacade.errorMessage
+        }
+        if (githubFacade.noticeMessage.length > 0) {
+            return githubFacade.noticeMessage
+        }
+        if (githubFacade.stale) {
+            return "筛选条件已变更，应用筛选后会刷新仓库列表。"
+        }
+        return ""
+    }
+
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: root.tokens ? root.tokens.pagePadding : 32
-        spacing: root.tokens ? root.tokens.sectionGap : 20
+        anchors.margins: root.tokens ? root.tokens.pagePadding : 30
+        spacing: root.tokens ? root.tokens.sectionGap : 16
 
         RowLayout {
             Layout.fillWidth: true
@@ -68,17 +83,50 @@ Item {
             PageHeader {
                 Layout.fillWidth: true
                 tokens: root.tokens
-                eyebrow: "AI Daily / GitHub"
-                title: "GitHub Trends"
-                subtitle: "Switch snapshots by day and keep filters, list reading, and detail review in one quiet workbench."
+                eyebrow: "AI DAILY / GITHUB TRENDS"
+                title: "GitHub 趋势"
+                subtitle: "切换每日快照，在同一张安静的编辑工作台上完成筛选、阅读与仓库细看。"
+            }
+
+            TextField {
+                id: searchField
+                Layout.preferredWidth: 210
+                placeholderText: "搜索仓库/摘要…"
+                selectByMouse: true
+                onTextEdited: if (githubFacade) githubFacade.setSearchQuery(text)
+                Binding {
+                    target: searchField
+                    property: "text"
+                    value: githubFacade ? githubFacade.searchQuery : ""
+                    when: !searchField.activeFocus
+                }
+                background: Rectangle {
+                    radius: root.tokens ? root.tokens.controlRadius : 10
+                    color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                    border.width: 1
+                    border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+                }
             }
 
             Button {
                 id: fetchButton
                 objectName: "githubFetchButton"
-                text: githubFacade && githubFacade.busy ? "Fetching..." : "Fetch Latest"
+                text: githubFacade && githubFacade.busy ? "获取中…" : "获取最新快照"
                 enabled: githubFacade ? !githubFacade.busy : false
                 onClicked: if (githubFacade) githubFacade.runFetch()
+                contentItem: Label {
+                    text: fetchButton.text
+                    color: "white"
+                    font.family: root.tokens ? root.tokens.sansFamily : font.family
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    radius: root.tokens ? root.tokens.controlRadius : 10
+                    color: root.tokens ? root.tokens.accentFill : "#B9916E"
+                }
             }
         }
 
@@ -89,21 +137,7 @@ Item {
             tokens: root.tokens
             busy: githubFacade ? githubFacade.busy : false
             tone: githubFacade ? githubFacade.statusTone : "neutral"
-            text: {
-                if (!githubFacade) {
-                    return ""
-                }
-                if (githubFacade.errorMessage.length > 0) {
-                    return githubFacade.errorMessage
-                }
-                if (githubFacade.noticeMessage.length > 0) {
-                    return githubFacade.noticeMessage
-                }
-                if (githubFacade.stale) {
-                    return "Filters changed. Apply filters to refresh the result list."
-                }
-                return ""
-            }
+            text: root.statusText()
         }
 
         Item {
@@ -130,29 +164,23 @@ Item {
         }
 
         Rectangle {
-            id: summaryBar
-            objectName: "githubSummaryBar"
             Layout.fillWidth: true
-            radius: root.tokens ? root.tokens.radiusMedium : 20
-            color: root.tokens ? root.tokens.surfaceMuted : "#F1E9DF"
-            border.width: 1
-            border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
-            implicitHeight: summaryColumn.implicitHeight + 28
+            color: "transparent"
+            implicitHeight: summaryColumn.implicitHeight
 
             ColumnLayout {
                 id: summaryColumn
                 anchors.fill: parent
-                anchors.margins: 16
-                spacing: 16
+                spacing: 10
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: 18
 
                     Label {
                         text: githubFacade && githubFacade.currentDate.length > 0
                             ? githubFacade.currentDate
-                            : "No active snapshot"
+                            : "尚未选择快照"
                         color: root.tokens ? root.tokens.inkStrong : "#2E261D"
                         font.family: root.tokens ? root.tokens.sansFamily : font.family
                         font.pixelSize: 13
@@ -161,187 +189,35 @@ Item {
 
                     Rectangle {
                         Layout.preferredWidth: 1
-                        Layout.preferredHeight: 16
-                        color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
+                        Layout.preferredHeight: 15
+                        color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
                     }
 
                     MetricPill {
                         tokens: root.tokens
-                        label: "Snapshots"
+                        label: "快照"
                         value: githubFacade ? String(githubFacade.snapshotModel.count) : "0"
                     }
 
                     MetricPill {
                         tokens: root.tokens
-                        label: "Results"
+                        label: "仓库"
                         value: githubFacade ? String(githubFacade.projectModel.count) : "0"
                     }
 
                     MetricPill {
                         tokens: root.tokens
-                        label: "State"
-                        value: githubFacade && githubFacade.stale ? "Stale" : "Synced"
+                        label: "状态"
+                        value: githubFacade && githubFacade.stale ? "待刷新" : "已同步"
                     }
 
                     Item { Layout.fillWidth: true }
-
-                    Button {
-                        id: applyFiltersButton
-                        objectName: "githubApplyFiltersButton"
-                        text: "Apply Filters"
-                        enabled: githubFacade ? !githubFacade.busy : false
-                        onClicked: if (githubFacade) githubFacade.reload()
-                    }
-
-                    Button {
-                        id: clearFiltersButton
-                        objectName: "githubClearFiltersButton"
-                        text: "Clear Filters"
-                        enabled: githubFacade ? !githubFacade.busy : false
-                        onClicked: if (githubFacade) githubFacade.clearFilters()
-                    }
                 }
 
-                Label {
+                Rectangle {
                     Layout.fillWidth: true
-                    text: githubFacade && githubFacade.summaryText.length > 0
-                        ? githubFacade.summaryText
-                        : "Waiting for a GitHub snapshot."
-                    color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                    font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    font.pixelSize: 12
-                    wrapMode: Text.WordWrap
-                }
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: root.compactFilters ? 3 : 6
-                    rowSpacing: 14
-                    columnSpacing: 14
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "Category"
-
-                        ComboBox {
-                            id: categoryCombo
-                            Layout.fillWidth: true
-                            model: root.categoryOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (githubFacade) githubFacade.setCategoryFilter(currentValue)
-                            Binding {
-                                target: categoryCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.categoryOptions, githubFacade ? githubFacade.categoryFilter : "")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "Language"
-
-                        ComboBox {
-                            id: languageCombo
-                            Layout.fillWidth: true
-                            model: root.languageOptions
-                            textRole: "label"
-                            valueRole: "value"
-                            onActivated: {
-                                if (githubFacade) {
-                                    githubFacade.setSelectedLanguages(currentValue.length > 0 ? [currentValue] : [])
-                                }
-                            }
-                            Binding {
-                                target: languageCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.languageOptions, root.selectedLanguageValue())
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "Min Stars"
-
-                        SpinBox {
-                            id: minStarsSpin
-                            Layout.fillWidth: true
-                            from: 0
-                            to: 1000000
-                            editable: true
-                            onValueModified: if (githubFacade) githubFacade.setMinStars(value)
-                            Binding {
-                                target: minStarsSpin
-                                property: "value"
-                                value: githubFacade ? githubFacade.minStars : 0
-                                when: !minStarsSpin.activeFocus
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "Trend"
-
-                        ComboBox {
-                            id: trendCombo
-                            Layout.fillWidth: true
-                            model: root.trendOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (githubFacade) githubFacade.setTrendFilter(currentValue)
-                            Binding {
-                                target: trendCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.trendOptions, githubFacade ? githubFacade.trendFilter : "")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "Sort"
-
-                        ComboBox {
-                            id: sortCombo
-                            Layout.fillWidth: true
-                            model: root.sortOptions
-                            textRole: "text"
-                            valueRole: "value"
-                            onActivated: if (githubFacade) githubFacade.setSortKey(currentValue)
-                            Binding {
-                                target: sortCombo
-                                property: "currentIndex"
-                                value: root.indexFor(root.sortOptions, githubFacade ? githubFacade.sortKey : "stars")
-                            }
-                        }
-                    }
-
-                    FilterGroup {
-                        Layout.fillWidth: true
-                        tokens: root.tokens
-                        title: "Search"
-
-                        TextField {
-                            id: searchField
-                            Layout.fillWidth: true
-                            placeholderText: "Search repo or summary"
-                            onTextChanged: if (githubFacade) githubFacade.setSearchQuery(text)
-                            Binding {
-                                target: searchField
-                                property: "text"
-                                value: githubFacade ? githubFacade.searchQuery : ""
-                                when: !searchField.activeFocus
-                            }
-                        }
-                    }
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(225 / 255, 215 / 255, 202 / 255, 0.7)
                 }
             }
         }
@@ -351,183 +227,388 @@ Item {
             Layout.fillHeight: true
             spacing: 16
 
-            SectionCard {
-                Layout.preferredWidth: 280
+            ColumnLayout {
+                Layout.preferredWidth: 246
                 Layout.fillHeight: true
-                tokens: root.tokens
-                heading: "Snapshot Archive"
-                supportingText: "Switch the trending snapshot by date."
+                spacing: 14
 
-                Item {
+                SectionCard {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 300
+                    tokens: root.tokens
+                    heading: "快照归档"
+                    supportingText: "按日期切换正式快照。"
 
-                    ListView {
-                        id: snapshotList
-                        objectName: "githubSnapshotList"
-                        anchors.fill: parent
-                        model: githubFacade ? githubFacade.snapshotModel : null
-                        spacing: 8
-                        clip: true
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
 
-                        delegate: SnapshotListDelegate {
-                            width: ListView.view.width
-                            tokens: root.tokens
-                            date: model.date
-                            label: model.label
-                            isSelected: model.isSelected
-                            isLatest: model.isLatest
-                            projectCount: model.projectCount
-                            generatedAt: model.generatedAt || ""
-                            onClicked: if (githubFacade) githubFacade.selectSnapshotRow(index)
-                        }
-                    }
+                        ListView {
+                            id: snapshotList
+                            objectName: "githubSnapshotList"
+                            anchors.fill: parent
+                            model: githubFacade ? githubFacade.snapshotModel : null
+                            spacing: 8
+                            clip: true
 
-                    Label {
-                        anchors.centerIn: parent
-                        visible: snapshotList.count === 0
-                        text: "No GitHub snapshots yet."
-                        color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                        font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    }
-                }
-            }
-
-            SectionCard {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                tokens: root.tokens
-                heading: "Project List"
-                supportingText: "Keep filtered repositories readable and calm."
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    ListView {
-                        id: projectList
-                        objectName: "githubProjectList"
-                        anchors.fill: parent
-                        model: githubFacade ? githubFacade.projectModel : null
-                        spacing: 10
-                        clip: true
-
-                        delegate: ProjectListDelegate {
-                            width: ListView.view.width
-                            tokens: root.tokens
-                            fullName: model.fullName
-                            description: model.descriptionZh.length > 0 ? model.descriptionZh : model.description
-                            language: model.language
-                            category: model.category
-                            trend: model.trend
-                            stars: model.stars
-                            starsToday: model.starsToday
-                            starsWeekly: model.starsWeekly
-                            updatedAt: model.updatedAt
-                            isSelected: model.isSelected
-                            onClicked: if (githubFacade) githubFacade.selectProjectRow(index)
-                        }
-                    }
-
-                    Label {
-                        anchors.centerIn: parent
-                        visible: projectList.count === 0
-                        text: githubFacade && githubFacade.currentDate.length > 0
-                            ? "No projects for the active filters."
-                            : "Select a GitHub snapshot first."
-                        color: root.tokens ? root.tokens.inkMuted : "#6E6457"
-                        font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    }
-                }
-            }
-
-            SectionCard {
-                Layout.preferredWidth: 360
-                Layout.fillHeight: true
-                tokens: root.tokens
-                heading: "Detail Panel"
-                supportingText: "Read details from the current model selection only."
-
-                ScrollView {
-                    objectName: "githubDetailPanel"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-
-                    ColumnLayout {
-                        width: parent.width
-                        spacing: 14
-
-                        Label {
-                            Layout.fillWidth: true
-                            text: githubFacade && githubFacade.hasSelection
-                                ? githubFacade.selectedProjectName
-                                : "Select a repository"
-                            color: root.tokens ? root.tokens.inkStrong : "#2E261D"
-                            font.family: root.tokens ? root.tokens.serifFamily : font.family
-                            font.pixelSize: 22
-                            font.weight: Font.DemiBold
-                            wrapMode: Text.WordWrap
+                            delegate: SnapshotListDelegate {
+                                width: ListView.view.width
+                                tokens: root.tokens
+                                date: model.date
+                                label: model.label
+                                isSelected: model.isSelected
+                                isLatest: model.isLatest
+                                projectCount: model.projectCount
+                                generatedAt: model.generatedAt || ""
+                                onClicked: if (githubFacade) githubFacade.selectSnapshotRow(index)
+                            }
                         }
 
                         Label {
-                            Layout.fillWidth: true
-                            text: githubFacade && githubFacade.hasSelection
-                                ? githubFacade.selectedProjectDescription
-                                : "The current selection will drive this detail panel."
+                            anchors.centerIn: parent
+                            visible: snapshotList.count === 0
+                            text: "暂无 GitHub 快照。"
                             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                             font.family: root.tokens ? root.tokens.sansFamily : font.family
-                            font.pixelSize: 13
-                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                SectionCard {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    tokens: root.tokens
+                    heading: "筛选"
+                    supportingText: "把过滤条件收敛成一条安静的内容带。"
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "分类"
+
+                            ComboBox {
+                                id: categoryCombo
+                                Layout.fillWidth: true
+                                model: root.categoryOptions
+                                textRole: "text"
+                                valueRole: "value"
+                                onActivated: if (githubFacade) githubFacade.setCategoryFilter(currentValue)
+                                Binding {
+                                    target: categoryCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.categoryOptions, githubFacade ? githubFacade.categoryFilter : "")
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "语言"
+
+                            ComboBox {
+                                id: languageCombo
+                                Layout.fillWidth: true
+                                model: root.languageOptions
+                                textRole: "label"
+                                valueRole: "value"
+                                onActivated: {
+                                    if (githubFacade) {
+                                        githubFacade.setSelectedLanguages(currentValue.length > 0 ? [currentValue] : [])
+                                    }
+                                }
+                                Binding {
+                                    target: languageCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.languageOptions, root.selectedLanguageValue())
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "趋势"
+
+                            ComboBox {
+                                id: trendCombo
+                                Layout.fillWidth: true
+                                model: root.trendOptions
+                                textRole: "text"
+                                valueRole: "value"
+                                onActivated: if (githubFacade) githubFacade.setTrendFilter(currentValue)
+                                Binding {
+                                    target: trendCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.trendOptions, githubFacade ? githubFacade.trendFilter : "")
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "最小 Stars"
+
+                            SpinBox {
+                                id: minStarsSpin
+                                Layout.fillWidth: true
+                                from: 0
+                                to: 1000000
+                                editable: true
+                                onValueModified: if (githubFacade) githubFacade.setMinStars(value)
+                                Binding {
+                                    target: minStarsSpin
+                                    property: "value"
+                                    value: githubFacade ? githubFacade.minStars : 0
+                                    when: !minStarsSpin.activeFocus
+                                }
+                            }
+                        }
+
+                        FilterGroup {
+                            Layout.fillWidth: true
+                            tokens: root.tokens
+                            title: "排序"
+
+                            ComboBox {
+                                id: sortCombo
+                                Layout.fillWidth: true
+                                model: root.sortOptions
+                                textRole: "text"
+                                valueRole: "value"
+                                onActivated: if (githubFacade) githubFacade.setSortKey(currentValue)
+                                Binding {
+                                    target: sortCombo
+                                    property: "currentIndex"
+                                    value: root.indexFor(root.sortOptions, githubFacade ? githubFacade.sortKey : "stars")
+                                }
+                            }
                         }
 
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 8
 
-                            MetricPill {
-                                tokens: root.tokens
-                                label: "Stars"
-                                value: githubFacade && githubFacade.hasSelection ? String(root.selectedProject.stars || 0) : "-"
+                            Button {
+                                id: applyFiltersButton
+                                objectName: "githubApplyFiltersButton"
+                                Layout.fillWidth: true
+                                text: "应用"
+                                enabled: githubFacade ? !githubFacade.busy : false
+                                onClicked: if (githubFacade) githubFacade.reload()
                             }
 
-                            MetricPill {
-                                tokens: root.tokens
-                                label: "Today"
-                                value: githubFacade && githubFacade.hasSelection && root.selectedProject.starsToday !== null && root.selectedProject.starsToday !== undefined
-                                    ? String(root.selectedProject.starsToday)
-                                    : "-"
+                            Button {
+                                id: clearFiltersButton
+                                objectName: "githubClearFiltersButton"
+                                Layout.fillWidth: true
+                                text: "清空"
+                                enabled: githubFacade ? !githubFacade.busy : false
+                                onClicked: if (githubFacade) githubFacade.clearFilters()
                             }
-
-                            MetricPill {
-                                tokens: root.tokens
-                                label: "Week"
-                                value: githubFacade && githubFacade.hasSelection && root.selectedProject.starsWeekly !== null && root.selectedProject.starsWeekly !== undefined
-                                    ? String(root.selectedProject.starsWeekly)
-                                    : "-"
-                            }
-                        }
-
-                        DetailField { tokens: root.tokens; label: "Language"; value: root.selectedProject.language || "" }
-                        DetailField { tokens: root.tokens; label: "Category"; value: root.selectedProject.category || "" }
-                        DetailField { tokens: root.tokens; label: "Trend"; value: root.selectedProject.trend || "" }
-                        DetailField { tokens: root.tokens; label: "Updated"; value: root.selectedProject.updatedAt || "" }
-                        DetailField { tokens: root.tokens; label: "License"; value: root.selectedProject.license || "" }
-                        DetailField {
-                            tokens: root.tokens
-                            label: "Forks"
-                            value: githubFacade && githubFacade.hasSelection ? String(root.selectedProject.forks || 0) : ""
                         }
                     }
                 }
+            }
 
-                Button {
-                    id: openRepoButton
-                    objectName: "githubOpenRepoButton"
-                    Layout.alignment: Qt.AlignLeft
-                    text: "Open Repository"
-                    enabled: githubFacade ? githubFacade.hasSelection && githubFacade.selectedProjectUrl.length > 0 : false
-                    onClicked: if (githubFacade) githubFacade.openSelectedRepo()
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: root.tokens ? root.tokens.panelRadius : 16
+                color: root.tokens ? root.tokens.surfaceBase : "#FBF8F3"
+                border.width: 1
+                border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 0
+                            spacing: 0
+
+                            Label {
+                                Layout.fillWidth: true
+                                leftPadding: 24
+                                rightPadding: 24
+                                topPadding: 18
+                                bottomPadding: 12
+                                text: "仓库列表 · " + (githubFacade ? String(githubFacade.projectModel.count) : "0") + " 个"
+                                color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                                font.family: root.tokens ? root.tokens.sansFamily : font.family
+                                font.pixelSize: 11
+                                font.letterSpacing: 0.3
+                            }
+
+                            ListView {
+                                id: projectList
+                                objectName: "githubProjectList"
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.leftMargin: 14
+                                Layout.rightMargin: 14
+                                Layout.bottomMargin: 14
+                                model: githubFacade ? githubFacade.projectModel : null
+                                spacing: 0
+                                clip: true
+
+                                delegate: ProjectListDelegate {
+                                    width: ListView.view.width
+                                    tokens: root.tokens
+                                    fullName: model.fullName
+                                    description: model.descriptionZh.length > 0 ? model.descriptionZh : model.description
+                                    language: model.language
+                                    category: model.category
+                                    trend: model.trend
+                                    stars: model.stars
+                                    starsToday: model.starsToday
+                                    starsWeekly: model.starsWeekly
+                                    updatedAt: model.updatedAt
+                                    isSelected: model.isSelected
+                                    onClicked: if (githubFacade) githubFacade.selectProjectRow(index)
+                                }
+                            }
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: projectList.count === 0
+                            text: githubFacade && githubFacade.currentDate.length > 0
+                                ? "当前筛选下没有项目。"
+                                : "先选择一个快照，再开始阅读。"
+                            color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                            font.family: root.tokens ? root.tokens.sansFamily : font.family
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.fillHeight: true
+                        color: Qt.rgba(225 / 255, 215 / 255, 202 / 255, 0.7)
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 390
+                        Layout.fillHeight: true
+                        color: "transparent"
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 24
+                            spacing: 14
+
+                            ScrollView {
+                                objectName: "githubDetailPanel"
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                clip: true
+
+                                ColumnLayout {
+                                    width: parent.width
+                                    spacing: 14
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: githubFacade && githubFacade.hasSelection
+                                            ? githubFacade.selectedProjectName
+                                            : "请选择仓库"
+                                        color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                                        font.family: root.tokens ? root.tokens.serifFamily : font.family
+                                        font.pixelSize: 22
+                                        font.weight: Font.Medium
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: githubFacade && githubFacade.hasSelection
+                                            ? githubFacade.selectedProjectDescription
+                                            : "详情面会跟随当前列表选中项更新。"
+                                        color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        MetricPill {
+                                            tokens: root.tokens
+                                            label: "Stars"
+                                            value: githubFacade && githubFacade.hasSelection ? String(root.selectedProject.stars || 0) : "-"
+                                        }
+
+                                        MetricPill {
+                                            tokens: root.tokens
+                                            label: "Today"
+                                            value: githubFacade && githubFacade.hasSelection && root.selectedProject.starsToday !== null && root.selectedProject.starsToday !== undefined
+                                                ? String(root.selectedProject.starsToday)
+                                                : "-"
+                                        }
+
+                                        MetricPill {
+                                            tokens: root.tokens
+                                            label: "Week"
+                                            value: githubFacade && githubFacade.hasSelection && root.selectedProject.starsWeekly !== null && root.selectedProject.starsWeekly !== undefined
+                                                ? String(root.selectedProject.starsWeekly)
+                                                : "-"
+                                        }
+                                    }
+
+                                    DetailField { Layout.fillWidth: true; tokens: root.tokens; label: "Language"; value: root.selectedProject.language || "" }
+                                    DetailField { Layout.fillWidth: true; tokens: root.tokens; label: "Category"; value: root.selectedProject.category || "" }
+                                    DetailField { Layout.fillWidth: true; tokens: root.tokens; label: "Trend"; value: root.selectedProject.trend || "" }
+                                    DetailField { Layout.fillWidth: true; tokens: root.tokens; label: "Updated"; value: root.selectedProject.updatedAt || "" }
+                                    DetailField { Layout.fillWidth: true; tokens: root.tokens; label: "License"; value: root.selectedProject.license || "" }
+                                    DetailField {
+                                        Layout.fillWidth: true
+                                        tokens: root.tokens
+                                        label: "Forks"
+                                        value: githubFacade && githubFacade.hasSelection ? String(root.selectedProject.forks || 0) : ""
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        width: parent.width
+                                        spacing: 6
+
+                                        Repeater {
+                                            model: root.selectedProject.topics || []
+
+                                            TagChip {
+                                                required property var modelData
+
+                                                tokens: root.tokens
+                                                label: String(modelData)
+                                                interactive: false
+                                                muted: true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Button {
+                                id: openRepoButton
+                                objectName: "githubOpenRepoButton"
+                                text: "打开仓库"
+                                enabled: githubFacade ? githubFacade.hasSelection && githubFacade.selectedProjectUrl.length > 0 : false
+                                onClicked: if (githubFacade) githubFacade.openSelectedRepo()
+                            }
+                        }
+                    }
                 }
             }
         }

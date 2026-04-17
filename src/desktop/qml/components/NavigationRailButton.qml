@@ -4,64 +4,50 @@ import QtQuick.Layouts
 
 Button {
     id: root
+
     required property string label
     required property string subtitle
     required property string iconSource
+    property var tokens
     property bool current: false
 
-    implicitHeight: 72
-    leftPadding: 14
-    rightPadding: 14
-    topPadding: 12
-    bottomPadding: 12
+    implicitHeight: 34
+    leftPadding: 11
+    rightPadding: 11
+    topPadding: 7
+    bottomPadding: 7
     hoverEnabled: true
 
     background: Rectangle {
-        radius: 18
-        color: root.current ? "#E6D4BF" : (root.hovered ? "#F5EFE5" : "transparent")
-        border.color: root.current ? "#BA8A5C" : "#D8CCB8"
-        border.width: 1
+        radius: 6
+        color: root.current
+            ? (root.tokens ? root.tokens.accentSoft : "#E8DDD0")
+            : (root.hovered ? (root.tokens ? root.tokens.surfaceBase : "#FBF8F3") : "transparent")
+        border.width: root.current ? 1 : 0
+        border.color: root.tokens ? root.tokens.borderSubtle : "#E1D7CA"
     }
 
     contentItem: RowLayout {
-        spacing: 12
+        spacing: 8
 
-        Rectangle {
-            Layout.preferredWidth: 38
-            Layout.preferredHeight: 38
-            radius: 12
-            color: root.current ? "#F7EBDD" : "#F3EEE7"
-
-            Image {
-                anchors.centerIn: parent
-                width: 18
-                height: 18
-                source: root.iconSource
-                fillMode: Image.PreserveAspectFit
-            }
+        Image {
+            Layout.preferredWidth: 15
+            Layout.preferredHeight: 15
+            source: root.iconSource
+            fillMode: Image.PreserveAspectFit
+            opacity: root.current ? 1 : 0.72
         }
 
-        ColumnLayout {
+        Label {
             Layout.fillWidth: true
-            spacing: 1
-
-            Label {
-                text: root.label
-                font.family: "Noto Sans SC"
-                font.pixelSize: 14
-                font.weight: Font.DemiBold
-                color: "#2E261D"
-            }
-
-            Label {
-                text: root.subtitle
-                Layout.fillWidth: true
-                elide: Text.ElideRight
-                font.family: "Noto Sans SC"
-                font.pixelSize: 11
-                color: "#6E6457"
-            }
+            text: root.label
+            color: root.current
+                ? (root.tokens ? root.tokens.textStrong : "#2E261D")
+                : (root.tokens ? root.tokens.textMuted : "#6E6457")
+            font.family: root.tokens ? root.tokens.sansFamily : font.family
+            font.pixelSize: 13
+            font.weight: root.current ? Font.Medium : Font.Normal
+            elide: Text.ElideRight
         }
     }
 }
-

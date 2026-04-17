@@ -15,14 +15,14 @@ Item {
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
-        spacing: 7
+        spacing: 6
 
         Label {
             text: root.title
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 11
-            font.letterSpacing: 0.4
+            font.pixelSize: 10
+            font.letterSpacing: 0.3
         }
     }
 }

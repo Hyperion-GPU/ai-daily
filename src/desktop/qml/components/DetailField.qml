@@ -15,21 +15,22 @@ Item {
     ColumnLayout {
         id: layout
         anchors.fill: parent
-        spacing: 4
+        spacing: 3
 
         Label {
             text: root.label
             color: root.tokens ? root.tokens.inkSoft : "#998C7C"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
             font.pixelSize: 10
-            font.letterSpacing: 0.5
+            font.letterSpacing: 0.35
         }
 
         Label {
             text: root.value.length > 0 ? root.value : "-"
             color: root.tokens ? root.tokens.inkStrong : "#2E261D"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 12
+            font.pixelSize: 11
+            lineHeight: 1.25
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
