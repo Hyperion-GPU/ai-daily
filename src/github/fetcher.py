@@ -62,6 +62,9 @@ class GitHubTrendingFetcher:
     def _snapshot_path(self, date_str: str) -> Path:
         return self.github_output_dir / f"trending-{date_str}.json"
 
+    def _partial_snapshot_path(self, date_str: str) -> Path:
+        return self.github_output_dir / f"trending-{date_str}.partial.json"
+
     def _list_snapshot_dates(self) -> list[str]:
         dates: list[str] = []
         for path in self.github_output_dir.glob("trending-*.json"):
@@ -109,6 +112,9 @@ class GitHubTrendingFetcher:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         return headers
+
+    def _current_token(self) -> str | None:
+        return get_github_token(self.config) if self.token_env else None
 
     def _normalize_project(self, item: dict) -> dict:
         topics = item.get("topics") if isinstance(item.get("topics"), list) else []
@@ -268,6 +274,83 @@ class GitHubTrendingFetcher:
 
         return sorted(projects, key=sort_key, reverse=True)
 
+    def _build_snapshot_payload(
+        self,
+        *,
+        date_str: str,
+        generated_at: datetime,
+        projects: list[dict],
+    ) -> dict:
+        return {
+            "date": date_str,
+            "generated_at": generated_at.isoformat(),
+            "stats": self._build_stats(projects),
+            "projects": projects,
+        }
+
+    @staticmethod
+    def _write_json(path: Path, payload: dict) -> None:
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _remove_partial_snapshot(self, date_str: str) -> None:
+        path = self._partial_snapshot_path(date_str)
+        if path.exists():
+            path.unlink()
+
+    def _build_degraded_result(
+        self,
+        *,
+        date_str: str,
+        generated_at: datetime,
+        reason: Literal["missing_token", "rate_limit"],
+        progress_callback: Callable[[GitHubFetchProgress], None] | None,
+        message: str,
+        projects: list[dict],
+        projects_found: int,
+        projects_new: int,
+        topics_done: int,
+        topics_total: int,
+    ) -> dict:
+        payload = self._build_snapshot_payload(
+            date_str=date_str,
+            generated_at=generated_at,
+            projects=projects,
+        )
+        payload["outcome"] = "degraded"
+        payload["reason"] = reason
+
+        partial_path = self._partial_snapshot_path(date_str)
+        self._emit_progress(
+            progress_callback,
+            stage="saving",
+            message=message,
+            current=topics_done,
+            total=topics_total,
+            topics_done=topics_done,
+            topics_total=topics_total,
+            projects_found=projects_found,
+            projects_new=projects_new,
+        )
+        self._write_json(partial_path, payload)
+        self.logger.warning("Saved degraded GitHub snapshot: %s", partial_path)
+        self._emit_progress(
+            progress_callback,
+            stage="completed",
+            message=message,
+            current=topics_done,
+            total=topics_total,
+            topics_done=topics_done,
+            topics_total=topics_total,
+            projects_found=projects_found,
+            projects_new=projects_new,
+        )
+        return {
+            "outcome": "degraded",
+            "reason": reason,
+            "snapshot": None,
+            "partial_path": str(partial_path),
+        }
+
     async def run(
         self,
         progress_callback: Callable[[GitHubFetchProgress], None] | None = None,
@@ -281,11 +364,11 @@ class GitHubTrendingFetcher:
         generated_at = now or now_in_config_timezone(self.config)
         date_str = generated_at.date().isoformat()
         topics_total = len(self.topics)
-        today_snapshot = self._load_snapshot(date_str)
-        existing_projects = list((today_snapshot or {}).get("projects", []))
+        official_today_snapshot = self._load_snapshot(date_str)
+        official_today_projects = list((official_today_snapshot or {}).get("projects", []))
         existing_ids = {
             project.get("id")
-            for project in existing_projects
+            for project in official_today_projects
             if isinstance(project, dict) and isinstance(project.get("id"), str)
         }
 
@@ -304,7 +387,23 @@ class GitHubTrendingFetcher:
         projects_found = 0
         projects_new = 0
         discovered_ids: set[str] = set()
-        merged_projects = list(existing_projects)
+        fetched_projects: list[dict] = []
+
+        token = self._current_token()
+        if not token:
+            self.logger.warning("GitHub token missing; skipping anonymous GitHub trending fetch.")
+            return self._build_degraded_result(
+                date_str=date_str,
+                generated_at=generated_at,
+                reason="missing_token",
+                progress_callback=progress_callback,
+                message="GitHub fetch degraded: missing GITHUB_TOKEN; no official snapshot written.",
+                projects=[],
+                projects_found=0,
+                projects_new=0,
+                topics_done=0,
+                topics_total=topics_total,
+            )
 
         async with httpx.AsyncClient(headers=self._build_headers()) as client:
             for index, topic in enumerate(self.topics, start=1):
@@ -323,28 +422,32 @@ class GitHubTrendingFetcher:
                 try:
                     topic_projects = await self._search_topic(client, topic)
                 except GitHubRateLimitExceeded as exc:
-                    if not merged_projects:
-                        raise RuntimeError(
-                            "GitHub API rate limit exceeded. Configure GITHUB_TOKEN to raise the limit."
-                        ) from exc
-
                     self.logger.warning(
-                        "GitHub rate limit reached after %s/%s topics. Saving partial snapshot.",
+                        "GitHub rate limit reached after %s/%s topics. Saving degraded snapshot.",
                         index - 1,
                         topics_total,
                     )
-                    self._emit_progress(
-                        progress_callback,
-                        stage="saving",
-                        message="GitHub rate limit reached, saving partial snapshot",
-                        current=index - 1,
-                        total=topics_total,
-                        topics_done=index - 1,
-                        topics_total=topics_total,
+                    partial_projects = self._apply_trends(
+                        fetched_projects,
+                        self._load_snapshot_on_or_before(generated_at.date(), strict_before=True),
+                        self._load_snapshot_on_or_before(
+                            generated_at.date() - timedelta(days=7),
+                            strict_before=False,
+                        ),
+                    )
+                    partial_projects = self._sort_projects(partial_projects)[: self.max_projects_per_day]
+                    return self._build_degraded_result(
+                        date_str=date_str,
+                        generated_at=generated_at,
+                        reason="rate_limit",
+                        progress_callback=progress_callback,
+                        message="GitHub fetch degraded: rate limit reached; existing official snapshot kept.",
+                        projects=partial_projects,
                         projects_found=projects_found,
                         projects_new=projects_new,
+                        topics_done=index - 1,
+                        topics_total=topics_total,
                     )
-                    break
                 projects_found += len(topic_projects)
 
                 unseen_ids = {
@@ -360,7 +463,7 @@ class GitHubTrendingFetcher:
                     for project in topic_projects
                     if isinstance(project.get("id"), str)
                 )
-                merged_projects = self._merge_projects(merged_projects, topic_projects)
+                fetched_projects = self._merge_projects(fetched_projects, topic_projects)
 
                 self._emit_progress(
                     progress_callback,
@@ -404,15 +507,14 @@ class GitHubTrendingFetcher:
             projects_new=projects_new,
         )
 
+        merged_projects = self._merge_projects(official_today_projects, fetched_projects)
         projects = self._apply_trends(merged_projects, previous_snapshot, weekly_snapshot)
         projects = self._sort_projects(projects)[: self.max_projects_per_day]
-
-        payload = {
-            "date": date_str,
-            "generated_at": generated_at.isoformat(),
-            "stats": self._build_stats(projects),
-            "projects": projects,
-        }
+        payload = self._build_snapshot_payload(
+            date_str=date_str,
+            generated_at=generated_at,
+            projects=projects,
+        )
 
         self._emit_progress(
             progress_callback,
@@ -427,7 +529,8 @@ class GitHubTrendingFetcher:
         )
 
         path = self._snapshot_path(date_str)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._write_json(path, payload)
+        self._remove_partial_snapshot(date_str)
         self.logger.info(f"Saved GitHub trending snapshot: {path}")
 
         self._emit_progress(
@@ -441,4 +544,9 @@ class GitHubTrendingFetcher:
             projects_found=projects_found,
             projects_new=projects_new,
         )
-        return payload
+        return {
+            "outcome": "success",
+            "reason": None,
+            "snapshot": payload,
+            "partial_path": None,
+        }
