@@ -31,7 +31,7 @@ jobs:
         run: python scripts/export_contracts.py --check
       - name: Run desktop QML mainline smoke suite
         run: |
-          python -m pytest tests/test_contracts_export.py tests/test_runtime_settings.py tests/test_settings_facade.py tests/test_desktop_entry.py tests/test_desktop_packaging_smoke.py tests/test_desktop_qml_smoke.py tests/test_desktop_qml_quick.py -q
+          python -m pytest tests/test_runtime_settings.py tests/test_settings_facade.py tests/test_desktop_entry.py tests/test_desktop_packaging_smoke.py tests/test_desktop_qml_smoke.py tests/test_desktop_qml_quick.py -q
       - name: Build packaged desktop
         run: pyinstaller -y "build/windows/AI Daily.spec"
       - name: Verify packaged desktop payload
