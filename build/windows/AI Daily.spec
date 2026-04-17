@@ -10,9 +10,16 @@ datas = [
     (str(ROOT / "config.yaml"), "."),
     (str(ROOT / "prompts"), "prompts"),
     (str(ROOT / "assets" / "branding"), "assets/branding"),
+    (str(ROOT / "assets" / "fonts"), "assets/fonts"),
+    (str(ROOT / "src" / "desktop" / "resources.rcc"), "src/desktop"),
 ]
 
-hiddenimports = collect_submodules("keyring.backends")
+hiddenimports = collect_submodules("keyring.backends") + [
+    "src.desktop.qml_app",
+    "PySide6.QtQml",
+    "PySide6.QtQuick",
+    "PySide6.QtQuickControls2",
+]
 
 a = Analysis(
     [str(ROOT / "desktop_main.py")],
@@ -54,4 +61,3 @@ coll = COLLECT(
     upx_exclude=[],
     name="AI Daily",
 )
-

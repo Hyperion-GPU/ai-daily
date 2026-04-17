@@ -1,0 +1,2308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AIDailyContractBundle",
+  "models": {
+    "Article": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "published": {
+          "title": "Published",
+          "type": "string"
+        },
+        "source_name": {
+          "title": "Source Name",
+          "type": "string"
+        },
+        "source_category": {
+          "enum": [
+            "arxiv",
+            "news",
+            "official",
+            "community"
+          ],
+          "title": "Source Category",
+          "type": "string"
+        },
+        "summary_zh": {
+          "title": "Summary Zh",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "importance": {
+          "title": "Importance",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "url",
+        "published",
+        "source_name",
+        "source_category",
+        "summary_zh",
+        "tags",
+        "importance"
+      ],
+      "title": "Article",
+      "type": "object"
+    },
+    "DigestStats": {
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "by_category": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Category",
+          "type": "object"
+        },
+        "by_tag": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Tag",
+          "type": "object"
+        }
+      },
+      "required": [
+        "total",
+        "by_category",
+        "by_tag"
+      ],
+      "title": "DigestStats",
+      "type": "object"
+    },
+    "DigestResponse": {
+      "$defs": {
+        "Article": {
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            },
+            "published": {
+              "title": "Published",
+              "type": "string"
+            },
+            "source_name": {
+              "title": "Source Name",
+              "type": "string"
+            },
+            "source_category": {
+              "enum": [
+                "arxiv",
+                "news",
+                "official",
+                "community"
+              ],
+              "title": "Source Category",
+              "type": "string"
+            },
+            "summary_zh": {
+              "title": "Summary Zh",
+              "type": "string"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tags",
+              "type": "array"
+            },
+            "importance": {
+              "title": "Importance",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "title",
+            "url",
+            "published",
+            "source_name",
+            "source_category",
+            "summary_zh",
+            "tags",
+            "importance"
+          ],
+          "title": "Article",
+          "type": "object"
+        },
+        "DigestStats": {
+          "properties": {
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "by_category": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Category",
+              "type": "object"
+            },
+            "by_tag": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Tag",
+              "type": "object"
+            }
+          },
+          "required": [
+            "total",
+            "by_category",
+            "by_tag"
+          ],
+          "title": "DigestStats",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/DigestStats"
+        },
+        "articles": {
+          "items": {
+            "$ref": "#/$defs/Article"
+          },
+          "title": "Articles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "generated_at",
+        "stats",
+        "articles"
+      ],
+      "title": "DigestResponse",
+      "type": "object"
+    },
+    "DateEntry": {
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "by_category": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Category",
+          "type": "object"
+        }
+      },
+      "required": [
+        "date",
+        "total",
+        "by_category"
+      ],
+      "title": "DateEntry",
+      "type": "object"
+    },
+    "DateListResponse": {
+      "$defs": {
+        "DateEntry": {
+          "properties": {
+            "date": {
+              "title": "Date",
+              "type": "string"
+            },
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "by_category": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Category",
+              "type": "object"
+            }
+          },
+          "required": [
+            "date",
+            "total",
+            "by_category"
+          ],
+          "title": "DateEntry",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "dates": {
+          "items": {
+            "$ref": "#/$defs/DateEntry"
+          },
+          "title": "Dates",
+          "type": "array"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest"
+        }
+      },
+      "required": [
+        "dates",
+        "latest"
+      ],
+      "title": "DateListResponse",
+      "type": "object"
+    },
+    "DigestQueryParams": {
+      "properties": {
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "min_importance": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Min Importance",
+          "type": "integer"
+        },
+        "sort": {
+          "default": "importance",
+          "enum": [
+            "importance",
+            "published"
+          ],
+          "title": "Sort",
+          "type": "string"
+        },
+        "q": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Q"
+        }
+      },
+      "title": "DigestQueryParams",
+      "type": "object"
+    },
+    "PipelineRunResponse": {
+      "properties": {
+        "status": {
+          "const": "started",
+          "enum": [
+            "started"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "PipelineRunResponse",
+      "type": "object"
+    },
+    "PipelineProgressResponse": {
+      "properties": {
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "starting",
+                "fetching",
+                "stage1",
+                "stage2",
+                "finalizing",
+                "completed",
+                "error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stage"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Message"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Current"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total"
+        },
+        "candidates": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Candidates"
+        },
+        "selected": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Selected"
+        },
+        "processed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Processed"
+        },
+        "report_articles": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Report Articles"
+        }
+      },
+      "required": [
+        "stage",
+        "message",
+        "current",
+        "total",
+        "candidates",
+        "selected",
+        "processed",
+        "report_articles"
+      ],
+      "title": "PipelineProgressResponse",
+      "type": "object"
+    },
+    "PipelineStatusResponse": {
+      "$defs": {
+        "PipelineProgressResponse": {
+          "properties": {
+            "stage": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "starting",
+                    "fetching",
+                    "stage1",
+                    "stage2",
+                    "finalizing",
+                    "completed",
+                    "error"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Message"
+            },
+            "current": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Current"
+            },
+            "total": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Total"
+            },
+            "candidates": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidates"
+            },
+            "selected": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Selected"
+            },
+            "processed": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Processed"
+            },
+            "report_articles": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Report Articles"
+            }
+          },
+          "required": [
+            "stage",
+            "message",
+            "current",
+            "total",
+            "candidates",
+            "selected",
+            "processed",
+            "report_articles"
+          ],
+          "title": "PipelineProgressResponse",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "running": {
+          "title": "Running",
+          "type": "boolean"
+        },
+        "last_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Run"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "last_outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "no_new_items",
+                "error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Outcome"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineProgressResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "running",
+        "last_run",
+        "error",
+        "last_outcome",
+        "progress"
+      ],
+      "title": "PipelineStatusResponse",
+      "type": "object"
+    },
+    "GitHubProject": {
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "full_name": {
+          "title": "Full Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "description_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description Zh"
+        },
+        "html_url": {
+          "title": "Html Url",
+          "type": "string"
+        },
+        "homepage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Homepage"
+        },
+        "stars": {
+          "title": "Stars",
+          "type": "integer"
+        },
+        "forks": {
+          "title": "Forks",
+          "type": "integer"
+        },
+        "open_issues": {
+          "title": "Open Issues",
+          "type": "integer"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Language"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "category": {
+          "enum": [
+            "llm",
+            "agent",
+            "cv",
+            "nlp",
+            "ml_framework",
+            "mlops",
+            "general"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Created At"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Updated At"
+        },
+        "pushed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pushed At"
+        },
+        "owner_avatar": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Owner Avatar"
+        },
+        "owner_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Owner Type"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "License"
+        },
+        "stars_today": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stars Today"
+        },
+        "stars_weekly": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stars Weekly"
+        },
+        "trend": {
+          "anyOf": [
+            {
+              "enum": [
+                "hot",
+                "rising",
+                "stable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Trend"
+        }
+      },
+      "required": [
+        "id",
+        "full_name",
+        "description",
+        "description_zh",
+        "html_url",
+        "homepage",
+        "stars",
+        "forks",
+        "open_issues",
+        "language",
+        "topics",
+        "category",
+        "created_at",
+        "updated_at",
+        "pushed_at",
+        "owner_avatar",
+        "owner_type",
+        "license",
+        "stars_today",
+        "stars_weekly",
+        "trend"
+      ],
+      "title": "GitHubProject",
+      "type": "object"
+    },
+    "GitHubTrendingStats": {
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "by_category": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Category",
+          "type": "object"
+        },
+        "by_language": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Language",
+          "type": "object"
+        }
+      },
+      "required": [
+        "total",
+        "by_category",
+        "by_language"
+      ],
+      "title": "GitHubTrendingStats",
+      "type": "object"
+    },
+    "GitHubTrendingResponse": {
+      "$defs": {
+        "GitHubProject": {
+          "properties": {
+            "id": {
+              "minLength": 1,
+              "title": "Id",
+              "type": "string"
+            },
+            "full_name": {
+              "title": "Full Name",
+              "type": "string"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "description_zh": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description Zh"
+            },
+            "html_url": {
+              "title": "Html Url",
+              "type": "string"
+            },
+            "homepage": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Homepage"
+            },
+            "stars": {
+              "title": "Stars",
+              "type": "integer"
+            },
+            "forks": {
+              "title": "Forks",
+              "type": "integer"
+            },
+            "open_issues": {
+              "title": "Open Issues",
+              "type": "integer"
+            },
+            "language": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            },
+            "topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Topics",
+              "type": "array"
+            },
+            "category": {
+              "enum": [
+                "llm",
+                "agent",
+                "cv",
+                "nlp",
+                "ml_framework",
+                "mlops",
+                "general"
+              ],
+              "title": "Category",
+              "type": "string"
+            },
+            "created_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created At"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated At"
+            },
+            "pushed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pushed At"
+            },
+            "owner_avatar": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Avatar"
+            },
+            "owner_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Type"
+            },
+            "license": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "License"
+            },
+            "stars_today": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stars Today"
+            },
+            "stars_weekly": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stars Weekly"
+            },
+            "trend": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "hot",
+                    "rising",
+                    "stable"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trend"
+            }
+          },
+          "required": [
+            "id",
+            "full_name",
+            "description",
+            "description_zh",
+            "html_url",
+            "homepage",
+            "stars",
+            "forks",
+            "open_issues",
+            "language",
+            "topics",
+            "category",
+            "created_at",
+            "updated_at",
+            "pushed_at",
+            "owner_avatar",
+            "owner_type",
+            "license",
+            "stars_today",
+            "stars_weekly",
+            "trend"
+          ],
+          "title": "GitHubProject",
+          "type": "object"
+        },
+        "GitHubTrendingStats": {
+          "properties": {
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "by_category": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Category",
+              "type": "object"
+            },
+            "by_language": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Language",
+              "type": "object"
+            }
+          },
+          "required": [
+            "total",
+            "by_category",
+            "by_language"
+          ],
+          "title": "GitHubTrendingStats",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/GitHubTrendingStats"
+        },
+        "projects": {
+          "items": {
+            "$ref": "#/$defs/GitHubProject"
+          },
+          "title": "Projects",
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "generated_at",
+        "stats",
+        "projects"
+      ],
+      "title": "GitHubTrendingResponse",
+      "type": "object"
+    },
+    "GitHubFetchResult": {
+      "$defs": {
+        "GitHubProject": {
+          "properties": {
+            "id": {
+              "minLength": 1,
+              "title": "Id",
+              "type": "string"
+            },
+            "full_name": {
+              "title": "Full Name",
+              "type": "string"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "description_zh": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description Zh"
+            },
+            "html_url": {
+              "title": "Html Url",
+              "type": "string"
+            },
+            "homepage": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Homepage"
+            },
+            "stars": {
+              "title": "Stars",
+              "type": "integer"
+            },
+            "forks": {
+              "title": "Forks",
+              "type": "integer"
+            },
+            "open_issues": {
+              "title": "Open Issues",
+              "type": "integer"
+            },
+            "language": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            },
+            "topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Topics",
+              "type": "array"
+            },
+            "category": {
+              "enum": [
+                "llm",
+                "agent",
+                "cv",
+                "nlp",
+                "ml_framework",
+                "mlops",
+                "general"
+              ],
+              "title": "Category",
+              "type": "string"
+            },
+            "created_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created At"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated At"
+            },
+            "pushed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pushed At"
+            },
+            "owner_avatar": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Avatar"
+            },
+            "owner_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Type"
+            },
+            "license": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "License"
+            },
+            "stars_today": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stars Today"
+            },
+            "stars_weekly": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stars Weekly"
+            },
+            "trend": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "hot",
+                    "rising",
+                    "stable"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trend"
+            }
+          },
+          "required": [
+            "id",
+            "full_name",
+            "description",
+            "description_zh",
+            "html_url",
+            "homepage",
+            "stars",
+            "forks",
+            "open_issues",
+            "language",
+            "topics",
+            "category",
+            "created_at",
+            "updated_at",
+            "pushed_at",
+            "owner_avatar",
+            "owner_type",
+            "license",
+            "stars_today",
+            "stars_weekly",
+            "trend"
+          ],
+          "title": "GitHubProject",
+          "type": "object"
+        },
+        "GitHubTrendingResponse": {
+          "properties": {
+            "date": {
+              "title": "Date",
+              "type": "string"
+            },
+            "generated_at": {
+              "title": "Generated At",
+              "type": "string"
+            },
+            "stats": {
+              "$ref": "#/$defs/GitHubTrendingStats"
+            },
+            "projects": {
+              "items": {
+                "$ref": "#/$defs/GitHubProject"
+              },
+              "title": "Projects",
+              "type": "array"
+            }
+          },
+          "required": [
+            "date",
+            "generated_at",
+            "stats",
+            "projects"
+          ],
+          "title": "GitHubTrendingResponse",
+          "type": "object"
+        },
+        "GitHubTrendingStats": {
+          "properties": {
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "by_category": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Category",
+              "type": "object"
+            },
+            "by_language": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "title": "By Language",
+              "type": "object"
+            }
+          },
+          "required": [
+            "total",
+            "by_category",
+            "by_language"
+          ],
+          "title": "GitHubTrendingStats",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "outcome": {
+          "enum": [
+            "success",
+            "degraded"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_token",
+                "rate_limit"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitHubTrendingResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "partial_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Partial Path"
+        }
+      },
+      "required": [
+        "outcome",
+        "reason",
+        "snapshot",
+        "partial_path"
+      ],
+      "title": "GitHubFetchResult",
+      "type": "object"
+    },
+    "GitHubDateListResponse": {
+      "properties": {
+        "dates": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dates",
+          "type": "array"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest"
+        }
+      },
+      "required": [
+        "dates",
+        "latest"
+      ],
+      "title": "GitHubDateListResponse",
+      "type": "object"
+    },
+    "GitHubQueryParams": {
+      "properties": {
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Language"
+        },
+        "min_stars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Min Stars",
+          "type": "integer"
+        },
+        "sort": {
+          "default": "stars",
+          "enum": [
+            "stars",
+            "stars_today",
+            "stars_weekly",
+            "updated"
+          ],
+          "title": "Sort",
+          "type": "string"
+        },
+        "q": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Q"
+        },
+        "trend": {
+          "anyOf": [
+            {
+              "enum": [
+                "hot",
+                "rising",
+                "stable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trend"
+        }
+      },
+      "title": "GitHubQueryParams",
+      "type": "object"
+    },
+    "GitHubFetchRunResponse": {
+      "properties": {
+        "status": {
+          "const": "started",
+          "enum": [
+            "started"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "GitHubFetchRunResponse",
+      "type": "object"
+    },
+    "GitHubFetchProgressResponse": {
+      "properties": {
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "starting",
+                "searching",
+                "deduplicating",
+                "computing_trends",
+                "saving",
+                "completed",
+                "error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stage"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Message"
+        },
+        "current": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Current"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total"
+        },
+        "topics_done": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Topics Done"
+        },
+        "topics_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Topics Total"
+        },
+        "projects_found": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Projects Found"
+        },
+        "projects_new": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Projects New"
+        }
+      },
+      "required": [
+        "stage",
+        "message",
+        "current",
+        "total",
+        "topics_done",
+        "topics_total",
+        "projects_found",
+        "projects_new"
+      ],
+      "title": "GitHubFetchProgressResponse",
+      "type": "object"
+    },
+    "GitHubFetchStatusResponse": {
+      "$defs": {
+        "GitHubFetchProgressResponse": {
+          "properties": {
+            "stage": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "starting",
+                    "searching",
+                    "deduplicating",
+                    "computing_trends",
+                    "saving",
+                    "completed",
+                    "error"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Message"
+            },
+            "current": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Current"
+            },
+            "total": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Total"
+            },
+            "topics_done": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Topics Done"
+            },
+            "topics_total": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Topics Total"
+            },
+            "projects_found": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Projects Found"
+            },
+            "projects_new": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Projects New"
+            }
+          },
+          "required": [
+            "stage",
+            "message",
+            "current",
+            "total",
+            "topics_done",
+            "topics_total",
+            "projects_found",
+            "projects_new"
+          ],
+          "title": "GitHubFetchProgressResponse",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "running": {
+          "title": "Running",
+          "type": "boolean"
+        },
+        "last_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Run"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "last_outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "degraded",
+                "error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Outcome"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitHubFetchProgressResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "running",
+        "last_run",
+        "error",
+        "last_outcome",
+        "progress"
+      ],
+      "title": "GitHubFetchStatusResponse",
+      "type": "object"
+    },
+    "LlmProviderSettings": {
+      "properties": {
+        "base_url": {
+          "default": "",
+          "title": "Base Url",
+          "type": "string"
+        },
+        "model": {
+          "default": "",
+          "title": "Model",
+          "type": "string"
+        },
+        "temperature": {
+          "default": 0.3,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "max_tokens": {
+          "default": 1500,
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "LlmProviderSettings",
+      "type": "object"
+    },
+    "LlmSettings": {
+      "$defs": {
+        "LlmProviderSettings": {
+          "properties": {
+            "base_url": {
+              "default": "",
+              "title": "Base Url",
+              "type": "string"
+            },
+            "model": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
+            },
+            "temperature": {
+              "default": 0.3,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Temperature",
+              "type": "number"
+            },
+            "max_tokens": {
+              "default": 1500,
+              "minimum": 1,
+              "title": "Max Tokens",
+              "type": "integer"
+            }
+          },
+          "title": "LlmProviderSettings",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "provider": {
+          "default": "siliconflow",
+          "enum": [
+            "siliconflow",
+            "newapi"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "siliconflow": {
+          "$ref": "#/$defs/LlmProviderSettings"
+        },
+        "newapi": {
+          "$ref": "#/$defs/LlmProviderSettings"
+        }
+      },
+      "title": "LlmSettings",
+      "type": "object"
+    },
+    "PipelineSettings": {
+      "properties": {
+        "time_window_hours": {
+          "default": 48,
+          "minimum": 1,
+          "title": "Time Window Hours",
+          "type": "integer"
+        },
+        "max_articles_per_day": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Max Articles Per Day",
+          "type": "integer"
+        },
+        "max_articles_to_stage2": {
+          "default": 50,
+          "minimum": 1,
+          "title": "Max Articles To Stage2",
+          "type": "integer"
+        },
+        "stage1_batch_size": {
+          "default": 50,
+          "minimum": 1,
+          "title": "Stage1 Batch Size",
+          "type": "integer"
+        }
+      },
+      "title": "PipelineSettings",
+      "type": "object"
+    },
+    "GitHubTrendingSettings": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "min_stars": {
+          "default": 500,
+          "minimum": 0,
+          "title": "Min Stars",
+          "type": "integer"
+        },
+        "max_projects_per_day": {
+          "default": 50,
+          "minimum": 1,
+          "title": "Max Projects Per Day",
+          "type": "integer"
+        }
+      },
+      "title": "GitHubTrendingSettings",
+      "type": "object"
+    },
+    "DesktopSettingsSnapshot": {
+      "$defs": {
+        "GitHubTrendingSettings": {
+          "properties": {
+            "enabled": {
+              "default": false,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "min_stars": {
+              "default": 500,
+              "minimum": 0,
+              "title": "Min Stars",
+              "type": "integer"
+            },
+            "max_projects_per_day": {
+              "default": 50,
+              "minimum": 1,
+              "title": "Max Projects Per Day",
+              "type": "integer"
+            }
+          },
+          "title": "GitHubTrendingSettings",
+          "type": "object"
+        },
+        "LlmProviderSettings": {
+          "properties": {
+            "base_url": {
+              "default": "",
+              "title": "Base Url",
+              "type": "string"
+            },
+            "model": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
+            },
+            "temperature": {
+              "default": 0.3,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Temperature",
+              "type": "number"
+            },
+            "max_tokens": {
+              "default": 1500,
+              "minimum": 1,
+              "title": "Max Tokens",
+              "type": "integer"
+            }
+          },
+          "title": "LlmProviderSettings",
+          "type": "object"
+        },
+        "LlmSettings": {
+          "properties": {
+            "provider": {
+              "default": "siliconflow",
+              "enum": [
+                "siliconflow",
+                "newapi"
+              ],
+              "title": "Provider",
+              "type": "string"
+            },
+            "siliconflow": {
+              "$ref": "#/$defs/LlmProviderSettings"
+            },
+            "newapi": {
+              "$ref": "#/$defs/LlmProviderSettings"
+            }
+          },
+          "title": "LlmSettings",
+          "type": "object"
+        },
+        "PipelineSettings": {
+          "properties": {
+            "time_window_hours": {
+              "default": 48,
+              "minimum": 1,
+              "title": "Time Window Hours",
+              "type": "integer"
+            },
+            "max_articles_per_day": {
+              "default": 30,
+              "minimum": 1,
+              "title": "Max Articles Per Day",
+              "type": "integer"
+            },
+            "max_articles_to_stage2": {
+              "default": 50,
+              "minimum": 1,
+              "title": "Max Articles To Stage2",
+              "type": "integer"
+            },
+            "stage1_batch_size": {
+              "default": 50,
+              "minimum": 1,
+              "title": "Stage1 Batch Size",
+              "type": "integer"
+            }
+          },
+          "title": "PipelineSettings",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "timezone": {
+          "default": "Asia/Shanghai",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "llm": {
+          "$ref": "#/$defs/LlmSettings"
+        },
+        "pipeline": {
+          "$ref": "#/$defs/PipelineSettings"
+        },
+        "github_trending": {
+          "$ref": "#/$defs/GitHubTrendingSettings"
+        },
+        "llm_api_key": {
+          "default": "",
+          "title": "Llm Api Key",
+          "type": "string"
+        },
+        "github_token": {
+          "default": "",
+          "title": "Github Token",
+          "type": "string"
+        }
+      },
+      "title": "DesktopSettingsSnapshot",
+      "type": "object"
+    },
+    "ValidationIssue": {
+      "properties": {
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "ValidationIssue",
+      "type": "object"
+    },
+    "ValidationResult": {
+      "$defs": {
+        "ValidationIssue": {
+          "properties": {
+            "field": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Field"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            }
+          },
+          "required": [
+            "message"
+          ],
+          "title": "ValidationIssue",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "valid": {
+          "title": "Valid",
+          "type": "boolean"
+        },
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        }
+      },
+      "required": [
+        "valid"
+      ],
+      "title": "ValidationResult",
+      "type": "object"
+    }
+  },
+  "frontend_aliases": {
+    "DailyDigest": "DigestResponse",
+    "DateList": "DateListResponse",
+    "QueryParams": "DigestQueryParams",
+    "PipelineProgress": "PipelineProgressResponse",
+    "PipelineStatus": "PipelineStatusResponse",
+    "GitHubTrendingData": "GitHubTrendingResponse",
+    "GitHubFetchProgress": "GitHubFetchProgressResponse",
+    "GitHubFetchStatus": "GitHubFetchStatusResponse"
+  }
+}

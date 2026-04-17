@@ -1,70 +1,62 @@
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any
 
-from dateutil import parser as date_parser
-
-from main import run_pipeline
-from src.github import GitHubTrendingFetcher
-from src.server.loader import list_dates, list_github_dates, load_digest, load_github_trending, load_index
 from src.settings import load_config
 
-LoadDigestFn = Callable[[str, dict | None], dict | None]
-LoadIndexFn = Callable[[dict | None], list[dict] | None]
-ListDatesFn = Callable[[dict | None], list[str]]
-RunPipelineFn = Callable[..., Any]
-
-
-def _published_sort_key(article: dict) -> datetime:
-    published = article.get("published")
-    if not published:
-        return datetime.min.replace(tzinfo=timezone.utc)
-
-    try:
-        parsed = date_parser.parse(str(published))
-    except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=timezone.utc)
-
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def _updated_sort_key(project: dict) -> datetime:
-    updated = project.get("updated_at")
-    if not updated:
-        return datetime.min.replace(tzinfo=timezone.utc)
-
-    try:
-        parsed = date_parser.parse(str(updated))
-    except (TypeError, ValueError):
-        return datetime.min.replace(tzinfo=timezone.utc)
-
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def _sort_metric_value(project: dict, key: str) -> int:
-    value = project.get(key)
-    return int(value) if value is not None else -1
+from .configuration import DesktopConfigurationService
+from .desktop_sync import DesktopArchiveSyncService
+from .digest import DigestArchiveService, list_dates as default_list_dates, load_digest as default_load_digest, load_index as default_load_index
+from .execution import (
+    GitHubExecutionService,
+    GitHubTrendingFetcher as default_github_fetcher_factory,
+    PipelineExecutionService,
+    run_pipeline as default_run_pipeline,
+)
+from .github_trending import (
+    GitHubSnapshotQueryService,
+    list_github_dates as default_list_github_dates,
+    load_github_trending as default_load_github_trending,
+)
 
 
 @dataclass
 class ApplicationServices:
     config: dict | None = None
-    list_dates_fn: ListDatesFn = list_dates
-    load_index_fn: LoadIndexFn = load_index
-    load_digest_fn: LoadDigestFn = load_digest
-    list_github_dates_fn: ListDatesFn = list_github_dates
-    load_github_trending_fn: LoadDigestFn = load_github_trending
     load_config_fn: Callable[..., dict] = load_config
-    run_pipeline_fn: RunPipelineFn = run_pipeline
-    github_fetcher_factory: Callable[[dict], GitHubTrendingFetcher] = GitHubTrendingFetcher
+    list_dates_fn: Callable[[dict | None], list[str]] | None = None
+    load_index_fn: Callable[[dict | None], list[dict] | None] | None = None
+    load_digest_fn: Callable[[str, dict | None], dict | None] | None = None
+    list_github_dates_fn: Callable[[dict | None], list[str]] | None = None
+    load_github_trending_fn: Callable[[str, dict | None], dict | None] | None = None
+    run_pipeline_fn: Callable[..., object] | None = None
+    github_fetcher_factory: Callable[[dict], object] | None = None
+    digest_archive_service: DigestArchiveService | None = None
+    github_snapshot_service: GitHubSnapshotQueryService | None = None
+    pipeline_execution_service: PipelineExecutionService | None = None
+    github_execution_service: GitHubExecutionService | None = None
+    configuration_service: DesktopConfigurationService | None = None
+    desktop_sync_service: DesktopArchiveSyncService | None = None
+
+    def __post_init__(self) -> None:
+        self.digest_archive_service = self.digest_archive_service or DigestArchiveService(
+            list_dates_fn=self.list_dates_fn or default_list_dates,
+            load_index_fn=self.load_index_fn or default_load_index,
+            load_digest_fn=self.load_digest_fn or default_load_digest,
+        )
+        self.github_snapshot_service = self.github_snapshot_service or GitHubSnapshotQueryService(
+            list_dates_fn=self.list_github_dates_fn or default_list_github_dates,
+            load_github_trending_fn=self.load_github_trending_fn or default_load_github_trending,
+        )
+        self.pipeline_execution_service = self.pipeline_execution_service or PipelineExecutionService(
+            run_pipeline_fn=self.run_pipeline_fn or default_run_pipeline,
+        )
+        self.github_execution_service = self.github_execution_service or GitHubExecutionService(
+            github_fetcher_factory=self.github_fetcher_factory or default_github_fetcher_factory,
+        )
+        self.configuration_service = self.configuration_service or DesktopConfigurationService()
+        self.desktop_sync_service = self.desktop_sync_service or DesktopArchiveSyncService()
 
     def current_config(self) -> dict:
         if self.config is None:
@@ -75,33 +67,7 @@ class ApplicationServices:
         self.config = config
 
     def get_dates(self) -> dict:
-        config = self.current_config()
-        date_strings = self.list_dates_fn(config)
-        index_entries = self.load_index_fn(config) or []
-        stats_by_date = {
-            entry.get("date"): entry
-            for entry in index_entries
-            if isinstance(entry.get("date"), str)
-        }
-        dates = []
-        for date in date_strings:
-            index_entry = stats_by_date.get(date)
-            if index_entry:
-                total = index_entry.get("total", 0)
-                by_category = index_entry.get("by_category", {})
-            else:
-                digest = self.load_digest_fn(date, config)
-                stats = digest.get("stats", {}) if digest else {}
-                total = stats.get("total", 0)
-                by_category = stats.get("by_category", {})
-            dates.append(
-                {
-                    "date": date,
-                    "total": total,
-                    "by_category": by_category,
-                }
-            )
-        return {"dates": dates, "latest": date_strings[0] if date_strings else None}
+        return self.digest_archive_service.get_dates(self.current_config())
 
     def get_digest(
         self,
@@ -113,51 +79,18 @@ class ApplicationServices:
         sort: str,
         q: str | None,
     ) -> dict | None:
-        config = self.current_config()
-        data = self.load_digest_fn(date, config)
-        if data is None:
-            return None
-
-        articles = data["articles"]
-
-        if tags:
-            articles = [article for article in articles if any(tag in article["tags"] for tag in tags)]
-        if category:
-            articles = [article for article in articles if article["source_category"] == category]
-        if min_importance > 1:
-            articles = [article for article in articles if article["importance"] >= min_importance]
-        if q:
-            q_normalized = q.casefold()
-            articles = [
-                article
-                for article in articles
-                if q_normalized in str(article.get("title", "")).casefold()
-                or q_normalized in str(article.get("summary_zh", "")).casefold()
-            ]
-
-        if sort == "published":
-            articles = sorted(articles, key=_published_sort_key, reverse=True)
-        else:
-            articles = sorted(articles, key=lambda article: article.get("importance", 0), reverse=True)
-
-        by_category = Counter(article["source_category"] for article in articles)
-        by_tag = Counter(tag for article in articles for tag in article["tags"])
-
-        return {
-            "date": data["date"],
-            "generated_at": data["generated_at"],
-            "stats": {
-                "total": len(articles),
-                "by_category": dict(by_category),
-                "by_tag": dict(by_tag),
-            },
-            "articles": articles,
-        }
+        return self.digest_archive_service.get_digest(
+            self.current_config(),
+            date,
+            tags=tags,
+            category=category,
+            min_importance=min_importance,
+            sort=sort,
+            q=q,
+        )
 
     def get_github_dates(self) -> dict:
-        config = self.current_config()
-        date_strings = self.list_github_dates_fn(config)
-        return {"dates": date_strings, "latest": date_strings[0] if date_strings else None}
+        return self.github_snapshot_service.get_dates(self.current_config())
 
     def get_latest_github_trending(
         self,
@@ -169,12 +102,8 @@ class ApplicationServices:
         q: str | None,
         trend: str | None,
     ) -> dict | None:
-        config = self.current_config()
-        dates = self.list_github_dates_fn(config)
-        if not dates:
-            return None
-        return self.get_github_trending_by_date(
-            dates[0],
+        return self.github_snapshot_service.get_latest(
+            self.current_config(),
             category=category,
             language=language,
             min_stars=min_stars,
@@ -194,73 +123,25 @@ class ApplicationServices:
         q: str | None,
         trend: str | None,
     ) -> dict | None:
-        config = self.current_config()
-        data = self.load_github_trending_fn(date, config)
-        if data is None:
-            return None
-
-        projects = list(data.get("projects", []))
-
-        if category:
-            projects = [project for project in projects if project.get("category") == category]
-        if language:
-            normalized_languages = {item.casefold() for item in language}
-            projects = [
-                project
-                for project in projects
-                if isinstance(project.get("language"), str)
-                and project["language"].casefold() in normalized_languages
-            ]
-        if min_stars > 0:
-            projects = [project for project in projects if int(project.get("stars", 0) or 0) >= min_stars]
-        if trend:
-            projects = [project for project in projects if project.get("trend") == trend]
-        if q:
-            q_normalized = q.casefold()
-            projects = [
-                project
-                for project in projects
-                if q_normalized in str(project.get("full_name", "")).casefold()
-                or q_normalized in str(project.get("description", "")).casefold()
-                or q_normalized in str(project.get("description_zh", "")).casefold()
-            ]
-
-        if sort == "updated":
-            projects = sorted(projects, key=_updated_sort_key, reverse=True)
-        elif sort == "stars_today":
-            projects = sorted(projects, key=lambda project: _sort_metric_value(project, "stars_today"), reverse=True)
-        elif sort == "stars_weekly":
-            projects = sorted(projects, key=lambda project: _sort_metric_value(project, "stars_weekly"), reverse=True)
-        else:
-            projects = sorted(projects, key=lambda project: int(project.get("stars", 0) or 0), reverse=True)
-
-        by_category = Counter(
-            project.get("category")
-            for project in projects
-            if isinstance(project.get("category"), str) and project.get("category")
+        return self.github_snapshot_service.get_by_date(
+            self.current_config(),
+            date,
+            category=category,
+            language=language,
+            min_stars=min_stars,
+            sort=sort,
+            q=q,
+            trend=trend,
         )
-        by_language = Counter(
-            project.get("language")
-            for project in projects
-            if isinstance(project.get("language"), str) and project.get("language")
-        )
-
-        return {
-            "date": data["date"],
-            "generated_at": data["generated_at"],
-            "stats": {
-                "total": len(projects),
-                "by_category": dict(by_category),
-                "by_language": dict(by_language),
-            },
-            "projects": projects,
-        }
 
     async def run_pipeline_async(self, progress_callback: Callable[[dict], None] | None = None) -> dict:
-        config = self.current_config()
-        return await self.run_pipeline_fn(config, progress_callback=progress_callback)
+        return await self.pipeline_execution_service.run(
+            self.current_config(),
+            progress_callback=progress_callback,
+        )
 
     async def run_github_fetch_async(self, progress_callback: Callable[[dict], None] | None = None) -> dict:
-        config = self.current_config()
-        fetcher = self.github_fetcher_factory(config)
-        return await fetcher.run(progress_callback=progress_callback)
+        return await self.github_execution_service.run(
+            self.current_config(),
+            progress_callback=progress_callback,
+        )

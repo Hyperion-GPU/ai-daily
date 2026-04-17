@@ -209,6 +209,9 @@ async def run_github_fetch_endpoint():
             "projects_new": 0,
         },
         conflict_detail="Fetch is already running",
+        resolve_success_outcome=lambda result: "degraded"
+        if isinstance(result, dict) and result.get("outcome") == "degraded"
+        else "success",
     )
 
     return {"status": "started"}

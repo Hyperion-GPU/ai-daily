@@ -276,7 +276,7 @@ def test_github_fetch_http_endpoint_accepts_post(monkeypatch):
             self.config = config
 
         async def run(self, progress_callback=None):
-            return {"date": "2026-03-16"}
+            return {"outcome": "success", "reason": None, "snapshot": None, "partial_path": None}
 
     monkeypatch.setattr(api, "load_config", lambda: {"timezone": "UTC"})
     monkeypatch.setattr(api, "GitHubTrendingFetcher", FakeFetcher)
@@ -389,7 +389,7 @@ async def test_github_fetch_endpoint_starts_background_task(monkeypatch):
                 )
             started.set()
             await finish.wait()
-            return {"date": "2026-03-16"}
+            return {"outcome": "success", "reason": None, "snapshot": None, "partial_path": None}
 
     monkeypatch.setattr(api, "load_config", lambda: {"timezone": "UTC"})
     monkeypatch.setattr(api, "GitHubTrendingFetcher", FakeFetcher)
@@ -414,6 +414,40 @@ async def test_github_fetch_endpoint_starts_background_task(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_github_fetch_status_reports_degraded_outcome(monkeypatch):
+    api._reset_github_fetch_state()
+
+    class FakeFetcher:
+        def __init__(self, config):
+            self.config = config
+
+        async def run(self, progress_callback=None):
+            if progress_callback is not None:
+                progress_callback({"stage": "completed", "message": "GitHub degraded"})
+            return {
+                "outcome": "degraded",
+                "reason": "rate_limit",
+                "snapshot": None,
+                "partial_path": "D:/tmp/trending.partial.json",
+            }
+
+    monkeypatch.setattr(api, "load_config", lambda: {"timezone": "UTC"})
+    monkeypatch.setattr(api, "GitHubTrendingFetcher", FakeFetcher)
+
+    await api.run_github_fetch_endpoint()
+
+    task = api._github_fetch_state.task
+    assert task is not None
+    await _wait_for_task(task)
+
+    status = await api.get_github_fetch_status()
+    assert status["running"] is False
+    assert status["error"] is None
+    assert status["last_outcome"] == "degraded"
+    assert status["progress"]["stage"] == "completed"
+
+
+@pytest.mark.anyio
 async def test_github_fetch_endpoint_rejects_concurrent_start(monkeypatch):
     api._reset_github_fetch_state()
     finish = asyncio.Event()
@@ -424,7 +458,7 @@ async def test_github_fetch_endpoint_rejects_concurrent_start(monkeypatch):
 
         async def run(self, progress_callback=None):
             await finish.wait()
-            return {"date": "2026-03-16"}
+            return {"outcome": "success", "reason": None, "snapshot": None, "partial_path": None}
 
     monkeypatch.setattr(api, "load_config", lambda: {"timezone": "UTC"})
     monkeypatch.setattr(api, "GitHubTrendingFetcher", FakeFetcher)
