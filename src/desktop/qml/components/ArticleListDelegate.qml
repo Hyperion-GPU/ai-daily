@@ -23,9 +23,9 @@ Rectangle {
         : (tokens ? tokens.surfaceBase : "#FBF8F2")
     border.width: 1
     border.color: isSelected
-        ? (tokens ? tokens.accentText : "#73491E")
+        ? (tokens ? tokens.borderStrong : "#73491E")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitHeight: contentColumn.implicitHeight + 22
+    implicitHeight: contentColumn.implicitHeight + 20
 
     ColumnLayout {
         id: contentColumn
@@ -34,33 +34,35 @@ Rectangle {
         spacing: 8
 
         Label {
-            text: root.title.length > 0 ? root.title : "未命名文章"
+            text: root.title.length > 0 ? root.title : "Untitled article"
             color: root.tokens ? root.tokens.inkStrong : "#2E261D"
             font.family: root.tokens ? root.tokens.serifFamily : font.family
-            font.pixelSize: 20
-            font.weight: Font.DemiBold
+            font.pixelSize: 17
+            font.weight: Font.Medium
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
+            maximumLineCount: 2
+            elide: Text.ElideRight
         }
 
         Label {
-            text: [root.sourceName, root.publishedLabel].filter(Boolean).join(" · ")
+            text: [root.sourceName, root.publishedLabel].filter(Boolean).join("  ·  ")
             visible: text.length > 0
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 12
+            font.pixelSize: 11
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
 
         Label {
-            text: root.summaryZh.length > 0 ? root.summaryZh : "暂无中文摘要。"
+            text: root.summaryZh.length > 0 ? root.summaryZh : "No summary yet."
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 13
+            font.pixelSize: 12
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
-            maximumLineCount: 4
+            maximumLineCount: 3
             elide: Text.ElideRight
         }
 
@@ -70,14 +72,14 @@ Rectangle {
 
             TagChip {
                 tokens: root.tokens
-                label: root.sourceCategoryLabel.length > 0 ? root.sourceCategoryLabel : "未分类"
+                label: root.sourceCategoryLabel.length > 0 ? root.sourceCategoryLabel : "Uncategorized"
                 interactive: false
                 muted: !root.isSelected
             }
 
             TagChip {
                 tokens: root.tokens
-                label: "重要度 " + root.importance + "/5"
+                label: "Importance " + root.importance + "/5"
                 interactive: false
                 selected: root.importance >= 4
                 muted: root.importance < 4
@@ -96,7 +98,9 @@ Rectangle {
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            Item {
+                Layout.fillWidth: true
+            }
         }
     }
 

@@ -16,13 +16,13 @@ Rectangle {
     radius: tokens ? tokens.controlRadius : 14
     color: root.selected
         ? (tokens ? tokens.accentSoft : "#E6D4BF")
-        : (tokens ? tokens.surfaceBase : "#FBF8F2")
+        : (tokens ? tokens.surfaceMuted : "#F1E9DF")
     border.width: 1
     border.color: root.selected
-        ? (tokens ? tokens.accentText : "#73491E")
+        ? (tokens ? tokens.borderStrong : "#BA8A5C")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitWidth: chipLabel.implicitWidth + 18
-    implicitHeight: chipLabel.implicitHeight + 10
+    implicitWidth: chipLabel.implicitWidth + 20
+    implicitHeight: chipLabel.implicitHeight + 9
     opacity: root.muted ? 0.72 : 1
 
     Label {
@@ -33,8 +33,8 @@ Rectangle {
             ? (tokens ? tokens.accentText : "#73491E")
             : (tokens ? tokens.inkMuted : "#6E6457")
         font.family: root.tokens ? root.tokens.sansFamily : font.family
-        font.pixelSize: 12
-        font.weight: root.selected ? Font.DemiBold : Font.Normal
+        font.pixelSize: 11
+        font.weight: root.selected ? Font.Medium : Font.Normal
     }
 
     MouseArea {

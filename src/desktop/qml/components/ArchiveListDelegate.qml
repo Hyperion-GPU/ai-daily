@@ -17,18 +17,18 @@ Rectangle {
     radius: tokens ? tokens.controlRadius : 14
     color: root.isSelected
         ? (tokens ? tokens.accentSoft : "#E6D4BF")
-        : (tokens ? tokens.surfaceBase : "#FBF8F2")
+        : (tokens ? tokens.surfaceMuted : "#F1E9DF")
     border.width: 1
     border.color: root.isSelected
-        ? (tokens ? tokens.accentText : "#73491E")
+        ? (tokens ? tokens.borderStrong : "#BA8A5C")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitHeight: contentColumn.implicitHeight + 18
+    implicitHeight: contentColumn.implicitHeight + 16
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
         anchors.margins: 12
-        spacing: 6
+        spacing: 5
 
         RowLayout {
             Layout.fillWidth: true
@@ -37,9 +37,9 @@ Rectangle {
             Label {
                 text: root.label
                 color: root.tokens ? root.tokens.inkStrong : "#2E261D"
-                font.family: root.tokens ? root.tokens.serifFamily : font.family
-                font.pixelSize: 16
-                font.weight: Font.DemiBold
+                font.family: root.tokens ? root.tokens.sansFamily : font.family
+                font.pixelSize: 14
+                font.weight: Font.Medium
                 Layout.fillWidth: true
                 elide: Text.ElideRight
             }
@@ -47,7 +47,7 @@ Rectangle {
             Rectangle {
                 visible: root.isLatest
                 radius: 8
-                color: root.tokens ? root.tokens.surfaceRaised : "#F7F1E8"
+                color: root.tokens ? root.tokens.surfaceBase : "#F7F1E8"
                 border.width: 1
                 border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
                 implicitWidth: latestLabel.implicitWidth + 10
@@ -59,16 +59,16 @@ Rectangle {
                     text: "Latest"
                     color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                     font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    font.pixelSize: 10
+                    font.pixelSize: 9
                 }
             }
         }
 
         Label {
-            text: root.articleCount + " 篇收录"
+            text: root.articleCount + " articles"
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 12
+            font.pixelSize: 11
         }
     }
 

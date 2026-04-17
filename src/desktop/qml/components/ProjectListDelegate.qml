@@ -25,22 +25,22 @@ Rectangle {
         : (tokens ? tokens.surfaceBase : "#FBF8F2")
     border.width: 1
     border.color: isSelected
-        ? (tokens ? tokens.accentText : "#73491E")
+        ? (tokens ? tokens.borderStrong : "#73491E")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitHeight: contentColumn.implicitHeight + 20
+    implicitHeight: contentColumn.implicitHeight + 18
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
         anchors.margins: 12
-        spacing: 8
+        spacing: 7
 
         Label {
             text: root.fullName
             color: root.tokens ? root.tokens.inkStrong : "#2E261D"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
             font.pixelSize: 14
-            font.weight: Font.DemiBold
+            font.weight: Font.Medium
             Layout.fillWidth: true
             elide: Text.ElideRight
         }
@@ -52,31 +52,33 @@ Rectangle {
             font.pixelSize: 12
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
+            maximumLineCount: 3
+            elide: Text.ElideRight
         }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 6
 
             Label {
                 text: root.language.length > 0 ? root.language : "Language unknown"
                 color: root.tokens ? root.tokens.inkSoft : "#998C7C"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
 
             Label {
                 text: root.category.length > 0 ? root.category : "Uncategorized"
                 color: root.tokens ? root.tokens.inkSoft : "#998C7C"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
 
             Label {
                 text: root.trend.length > 0 ? root.trend : "Trend pending"
                 color: root.tokens ? root.tokens.inkSoft : "#998C7C"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
 
             Item { Layout.fillWidth: true }
@@ -84,27 +86,27 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: 8
 
             Label {
                 text: "Stars " + root.stars
                 color: root.tokens ? root.tokens.inkStrong : "#2E261D"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
 
             Label {
                 text: "Today " + (root.starsToday === null || root.starsToday === undefined ? "-" : root.starsToday)
-                color: root.tokens ? root.tokens.inkMuted : "#6E6457"
+                color: root.tokens ? root.tokens.accentText : "#6E6457"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
 
             Label {
                 text: "Week " + (root.starsWeekly === null || root.starsWeekly === undefined ? "-" : root.starsWeekly)
                 color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
 
             Item { Layout.fillWidth: true }
@@ -113,7 +115,7 @@ Rectangle {
                 text: root.updatedAt.length > 0 ? root.updatedAt : "Updated time unknown"
                 color: root.tokens ? root.tokens.inkSoft : "#998C7C"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
         }
     }

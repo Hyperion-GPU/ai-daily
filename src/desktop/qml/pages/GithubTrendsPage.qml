@@ -36,6 +36,7 @@ Item {
         githubFacade ? githubFacade.availableLanguages : []
     )
     readonly property var selectedProject: githubFacade ? githubFacade.projectModel.selectedItem : ({})
+    readonly property bool compactFilters: root.width < 1240
 
     objectName: "githubWorkspace"
 
@@ -133,7 +134,7 @@ Item {
             objectName: "githubSummaryBar"
             Layout.fillWidth: true
             radius: root.tokens ? root.tokens.radiusMedium : 20
-            color: root.tokens ? root.tokens.surfaceRaised : "#F7F1E8"
+            color: root.tokens ? root.tokens.surfaceMuted : "#F1E9DF"
             border.width: 1
             border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
             implicitHeight: summaryColumn.implicitHeight + 28
@@ -141,12 +142,28 @@ Item {
             ColumnLayout {
                 id: summaryColumn
                 anchors.fill: parent
-                anchors.margins: 14
-                spacing: 14
+                anchors.margins: 16
+                spacing: 16
 
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
+
+                    Label {
+                        text: githubFacade && githubFacade.currentDate.length > 0
+                            ? githubFacade.currentDate
+                            : "No active snapshot"
+                        color: root.tokens ? root.tokens.inkStrong : "#2E261D"
+                        font.family: root.tokens ? root.tokens.sansFamily : font.family
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 16
+                        color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
+                    }
 
                     MetricPill {
                         tokens: root.tokens
@@ -192,13 +209,15 @@ Item {
                         : "Waiting for a GitHub snapshot."
                     color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                     font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     wrapMode: Text.WordWrap
                 }
 
-                RowLayout {
+                GridLayout {
                     Layout.fillWidth: true
-                    spacing: 14
+                    columns: root.compactFilters ? 3 : 6
+                    rowSpacing: 14
+                    columnSpacing: 14
 
                     FilterGroup {
                         Layout.fillWidth: true
@@ -245,7 +264,7 @@ Item {
                     }
 
                     FilterGroup {
-                        Layout.preferredWidth: 140
+                        Layout.fillWidth: true
                         tokens: root.tokens
                         title: "Min Stars"
 

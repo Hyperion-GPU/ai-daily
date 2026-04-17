@@ -18,18 +18,18 @@ Rectangle {
     radius: tokens ? tokens.controlRadius : 14
     color: isSelected
         ? (tokens ? tokens.accentSoft : "#E6D4BF")
-        : (tokens ? tokens.surfaceBase : "#FBF8F2")
+        : (tokens ? tokens.surfaceMuted : "#F1E9DF")
     border.width: 1
     border.color: isSelected
         ? (tokens ? tokens.accentText : "#73491E")
         : (tokens ? tokens.borderSubtle : "#D8CCB8")
-    implicitHeight: contentColumn.implicitHeight + 18
+    implicitHeight: contentColumn.implicitHeight + 16
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
         anchors.margins: 10
-        spacing: 4
+        spacing: 6
 
         RowLayout {
             Layout.fillWidth: true
@@ -39,14 +39,14 @@ Rectangle {
                 text: root.label
                 color: root.tokens ? root.tokens.inkStrong : "#2E261D"
                 font.family: root.tokens ? root.tokens.sansFamily : font.family
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
+                font.pixelSize: 12
+                font.weight: Font.Medium
             }
 
             Rectangle {
                 visible: root.isLatest
                 radius: 8
-                color: root.tokens ? root.tokens.surfaceRaised : "#F7F1E8"
+                color: root.tokens ? root.tokens.surfaceBase : "#FBF8F2"
                 border.width: 1
                 border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
                 implicitWidth: latestLabel.implicitWidth + 10
@@ -58,7 +58,7 @@ Rectangle {
                     text: "Latest"
                     color: root.tokens ? root.tokens.inkMuted : "#6E6457"
                     font.family: root.tokens ? root.tokens.sansFamily : font.family
-                    font.pixelSize: 10
+                    font.pixelSize: 9
                 }
             }
 
@@ -71,14 +71,14 @@ Rectangle {
                 : root.projectCount + " projects"
             color: root.tokens ? root.tokens.inkMuted : "#6E6457"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 12
+            font.pixelSize: 11
         }
 
         Label {
             text: root.generatedAt.length > 0 ? root.generatedAt : "Generated time pending"
             color: root.tokens ? root.tokens.inkSoft : "#998C7C"
             font.family: root.tokens ? root.tokens.sansFamily : font.family
-            font.pixelSize: 11
+            font.pixelSize: 10
             elide: Text.ElideRight
             Layout.fillWidth: true
         }

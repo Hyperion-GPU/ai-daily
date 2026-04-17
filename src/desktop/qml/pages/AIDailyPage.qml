@@ -23,6 +23,7 @@ Item {
     ]
     readonly property var selectedArticle: digestFacade ? digestFacade.selectedArticle : ({})
     readonly property var articleTags: selectedArticle && selectedArticle.tags ? selectedArticle.tags : []
+    readonly property bool compactFilters: root.width < 1200
 
     objectName: "aiDailyWorkspace"
 
@@ -110,7 +111,7 @@ Item {
             objectName: "aiDailySummaryBar"
             Layout.fillWidth: true
             radius: root.tokens ? root.tokens.radiusMedium : 20
-            color: root.tokens ? root.tokens.surfaceRaised : "#F7F1E8"
+            color: root.tokens ? root.tokens.surfaceMuted : "#F1E9DF"
             border.width: 1
             border.color: root.tokens ? root.tokens.borderSubtle : "#D8CCB8"
             implicitHeight: summaryColumn.implicitHeight + 28

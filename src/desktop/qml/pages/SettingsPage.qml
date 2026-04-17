@@ -19,6 +19,7 @@ Item {
     readonly property color pageInkMuted: root.tokens ? root.tokens.inkMuted : "#6f6558"
     readonly property color pageInkSoft: root.tokens ? root.tokens.inkSoft : "#998c7c"
     readonly property string pageSansFamily: root.tokens ? root.tokens.sansFamily : "Sans Serif"
+    readonly property int contentMaxWidth: 980
     readonly property int wideRailWidth: 340
     readonly property int wideCardsGap: root.sectionGapValue
     readonly property int widePrimaryMinWidth: 600
@@ -146,7 +147,8 @@ Item {
 
                 ColumnLayout {
                     id: settingsScrollContent
-                    width: parent.width
+                    width: Math.min(parent.width, root.contentMaxWidth)
+                    anchors.horizontalCenter: parent.horizontalCenter
                     spacing: root.sectionGapValue
 
                     Item {
