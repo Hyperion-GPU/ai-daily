@@ -1,0 +1,10 @@
+module AIDaily.Desktop
+Main 1.0 Main.qml
+DesktopShell 1.0 DesktopShell.qml
+NavigationRailButton 1.0 components/NavigationRailButton.qml
+AIDailyPage 1.0 pages/AIDailyPage.qml
+GithubTrendsPage 1.0 pages/GithubTrendsPage.qml
+SettingsPage 1.0 pages/SettingsPage.qml
+WorkspacePlaceholderPage 1.0 pages/WorkspacePlaceholderPage.qml
+ThemeTokens 1.0 theme/ThemeTokens.qml
+

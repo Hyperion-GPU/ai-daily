@@ -1,0 +1,48 @@
+name: desktop-qml-smoke
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "codex/**"
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      QT_FORCE_STDERR_LOGGING: "1"
+      AI_DAILY_QML_STYLE: Basic
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
+      - name: Verify pinned PySide6 version
+        run: |
+          python - <<'PY'
+          import PySide6
+          assert PySide6.__version__ == "6.8.1.1", PySide6.__version__
+          print(PySide6.__version__)
+          PY
+      - name: Verify generated contracts
+        run: python scripts/export_contracts.py --check
+      - name: Run desktop QML mainline smoke suite
+        run: |
+          python -m pytest tests/test_contracts_export.py tests/test_runtime_settings.py tests/test_settings_facade.py tests/test_desktop_entry.py tests/test_desktop_packaging_smoke.py tests/test_desktop_qml_smoke.py tests/test_desktop_qml_quick.py -q
+      - name: Build packaged desktop
+        run: pyinstaller -y "build/windows/AI Daily.spec"
+      - name: Verify packaged desktop payload
+        run: python -m pytest tests/test_desktop_packaging_smoke.py -q
+      - name: Verify packaged desktop default QML startup
+        run: |
+          python scripts/check_packaged_desktop.py --mode default-qml --localappdata-root "$env:RUNNER_TEMP\aid-closeout-default"
+      - name: Verify packaged desktop removed widgets contract
+        run: |
+          python scripts/check_packaged_desktop.py --mode widgets-removed --localappdata-root "$env:RUNNER_TEMP\aid-closeout-widgets"

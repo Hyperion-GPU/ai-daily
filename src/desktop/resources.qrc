@@ -1,0 +1,35 @@
+<RCC>
+  <qresource prefix="/">
+    <file alias="qtquickcontrols2.conf">../../qtquickcontrols2.conf</file>
+  </qresource>
+  <qresource prefix="/qt/qml/AIDaily/Desktop">
+    <file alias="qmldir">qml/qmldir</file>
+    <file alias="Main.qml">qml/Main.qml</file>
+    <file alias="DesktopShell.qml">qml/DesktopShell.qml</file>
+    <file alias="components/NavigationRailButton.qml">qml/components/NavigationRailButton.qml</file>
+    <file alias="components/DetailField.qml">qml/components/DetailField.qml</file>
+    <file alias="components/FilterGroup.qml">qml/components/FilterGroup.qml</file>
+    <file alias="components/MetricPill.qml">qml/components/MetricPill.qml</file>
+    <file alias="components/PageHeader.qml">qml/components/PageHeader.qml</file>
+    <file alias="components/ArchiveListDelegate.qml">qml/components/ArchiveListDelegate.qml</file>
+    <file alias="components/ArticleListDelegate.qml">qml/components/ArticleListDelegate.qml</file>
+    <file alias="components/ProjectListDelegate.qml">qml/components/ProjectListDelegate.qml</file>
+    <file alias="components/SectionCard.qml">qml/components/SectionCard.qml</file>
+    <file alias="components/SnapshotListDelegate.qml">qml/components/SnapshotListDelegate.qml</file>
+    <file alias="components/StatusBanner.qml">qml/components/StatusBanner.qml</file>
+    <file alias="components/TagChip.qml">qml/components/TagChip.qml</file>
+    <file alias="components/WorkspacePlaceholder.qml">qml/components/WorkspacePlaceholder.qml</file>
+    <file alias="pages/AIDailyPage.qml">qml/pages/AIDailyPage.qml</file>
+    <file alias="pages/GithubTrendsPage.qml">qml/pages/GithubTrendsPage.qml</file>
+    <file alias="pages/SettingsPage.qml">qml/pages/SettingsPage.qml</file>
+    <file alias="pages/WorkspacePlaceholderPage.qml">qml/pages/WorkspacePlaceholderPage.qml</file>
+    <file alias="theme/ThemeTokens.qml">qml/theme/ThemeTokens.qml</file>
+    <file alias="assets/branding/ai-daily-icon.png">../../assets/branding/ai-daily-icon.png</file>
+    <file alias="assets/branding/icon-digest.svg">../../assets/branding/icon-digest.svg</file>
+    <file alias="assets/branding/icon-trending.svg">../../assets/branding/icon-trending.svg</file>
+    <file alias="assets/branding/icon-settings.svg">../../assets/branding/icon-settings.svg</file>
+    <file alias="assets/branding/icon-search.svg">../../assets/branding/icon-search.svg</file>
+    <file alias="assets/fonts/NotoSansSC-VF.ttf">../../assets/fonts/NotoSansSC-VF.ttf</file>
+    <file alias="assets/fonts/NotoSerifSC-VF.ttf">../../assets/fonts/NotoSerifSC-VF.ttf</file>
+  </qresource>
+</RCC>

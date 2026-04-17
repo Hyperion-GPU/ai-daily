@@ -1,0 +1,403 @@
+from __future__ import annotations
+
+import asyncio
+import copy
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QApplication
+
+import src.desktop.facades.github_workspace as github_workspace_module
+from src.desktop.facades import GithubWorkspaceFacade
+
+
+SUCCESS_NOTICE = "GitHub 趋势快照已刷新。"
+DEGRADED_NOTICE_WITH_SNAPSHOT = "GitHub 抓取受限，已保留当前正式快照；恢复 GITHUB_TOKEN 后重试。"
+DEGRADED_NOTICE_WITHOUT_SNAPSHOT = "GitHub 抓取受限，未生成正式快照；请配置 GITHUB_TOKEN 后重试。"
+
+
+def _snapshot(
+    date: str,
+    *,
+    projects: list[dict],
+    by_language: dict[str, int],
+    by_category: dict[str, int],
+) -> dict:
+    return {
+        "date": date,
+        "generated_at": f"{date}T10:00:00+08:00",
+        "stats": {
+            "total": len(projects),
+            "by_category": by_category,
+            "by_language": by_language,
+        },
+        "projects": projects,
+    }
+
+
+def _fetch_result(snapshot: dict | None = None, *, outcome: str = "success", reason: str | None = None) -> dict:
+    return {
+        "outcome": outcome,
+        "reason": reason,
+        "snapshot": copy.deepcopy(snapshot),
+        "partial_path": None if outcome == "success" else "D:/tmp/trending.partial.json",
+    }
+
+
+def _project(
+    project_id: str,
+    *,
+    name: str,
+    description: str,
+    description_zh: str,
+    language: str,
+    category: str,
+    stars: int,
+    stars_today: int,
+    stars_weekly: int,
+    trend: str,
+    updated_at: str,
+) -> dict:
+    return {
+        "id": project_id,
+        "full_name": name,
+        "description": description,
+        "description_zh": description_zh,
+        "html_url": f"https://github.com/{name}",
+        "homepage": None,
+        "stars": stars,
+        "forks": 10,
+        "open_issues": 1,
+        "language": language,
+        "topics": [category],
+        "category": category,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": updated_at,
+        "pushed_at": updated_at,
+        "owner_avatar": "",
+        "owner_type": "Organization",
+        "license": "MIT",
+        "stars_today": stars_today,
+        "stars_weekly": stars_weekly,
+        "trend": trend,
+    }
+
+
+class FakeServices:
+    def __init__(self) -> None:
+        self.github_dates = ["2026-04-15", "2026-04-14"]
+        self.snapshots = {
+            "2026-04-15": _snapshot(
+                "2026-04-15",
+                projects=[
+                    _project(
+                        "acme/alpha",
+                        name="acme/alpha",
+                        description="Alpha helper",
+                        description_zh="Alpha 助手",
+                        language="Python",
+                        category="llm",
+                        stars=1200,
+                        stars_today=25,
+                        stars_weekly=180,
+                        trend="rising",
+                        updated_at="2026-04-15T08:00:00Z",
+                    ),
+                    _project(
+                        "acme/beta",
+                        name="acme/beta",
+                        description="Beta helper",
+                        description_zh="",
+                        language="TypeScript",
+                        category="agent",
+                        stars=980,
+                        stars_today=15,
+                        stars_weekly=120,
+                        trend="hot",
+                        updated_at="2026-04-15T07:00:00Z",
+                    ),
+                ],
+                by_language={"Python": 1, "TypeScript": 1},
+                by_category={"llm": 1, "agent": 1},
+            ),
+            "2026-04-14": _snapshot(
+                "2026-04-14",
+                projects=[
+                    _project(
+                        "acme/gamma",
+                        name="acme/gamma",
+                        description="Gamma helper",
+                        description_zh="Gamma 助手",
+                        language="Python",
+                        category="llm",
+                        stars=760,
+                        stars_today=8,
+                        stars_weekly=60,
+                        trend="stable",
+                        updated_at="2026-04-14T08:00:00Z",
+                    )
+                ],
+                by_language={"Python": 1},
+                by_category={"llm": 1},
+            ),
+        }
+        self.fetch_result = _fetch_result(self.snapshots["2026-04-15"])
+        self.fetch_error: str | None = None
+
+    def get_github_dates(self) -> dict:
+        latest = self.github_dates[0] if self.github_dates else None
+        return {"dates": list(self.github_dates), "latest": latest}
+
+    def get_latest_github_trending(self, **kwargs) -> dict | None:
+        latest = self.github_dates[0] if self.github_dates else None
+        if latest is None:
+            return None
+        return self.get_github_trending_by_date(latest, **kwargs)
+
+    def get_github_trending_by_date(self, date: str, **kwargs) -> dict | None:
+        snapshot = copy.deepcopy(self.snapshots.get(date))
+        if snapshot is None:
+            return None
+        projects = list(snapshot["projects"])
+        category = kwargs.get("category")
+        language = kwargs.get("language", [])
+        min_stars = kwargs.get("min_stars", 0)
+        sort = kwargs.get("sort", "stars")
+        query = kwargs.get("q")
+        trend = kwargs.get("trend")
+        if category:
+            projects = [project for project in projects if project["category"] == category]
+        if language:
+            normalized = {item.casefold() for item in language}
+            projects = [
+                project
+                for project in projects
+                if str(project.get("language", "")).casefold() in normalized
+            ]
+        if min_stars > 0:
+            projects = [project for project in projects if int(project.get("stars", 0) or 0) >= min_stars]
+        if trend:
+            projects = [project for project in projects if project.get("trend") == trend]
+        if query:
+            term = query.casefold()
+            projects = [
+                project
+                for project in projects
+                if term in project["full_name"].casefold()
+                or term in str(project.get("description", "")).casefold()
+                or term in str(project.get("description_zh", "")).casefold()
+            ]
+        if sort == "stars_today":
+            projects.sort(key=lambda item: int(item.get("stars_today") or -1), reverse=True)
+        elif sort == "stars_weekly":
+            projects.sort(key=lambda item: int(item.get("stars_weekly") or -1), reverse=True)
+        elif sort == "updated":
+            projects.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
+        else:
+            projects.sort(key=lambda item: int(item.get("stars", 0) or 0), reverse=True)
+        snapshot["projects"] = projects
+        snapshot["stats"]["total"] = len(projects)
+        return snapshot
+
+    async def run_github_fetch_async(self, progress_callback=None) -> dict:
+        if self.fetch_error:
+            raise RuntimeError(self.fetch_error)
+        if progress_callback is not None:
+            progress_callback({"stage": "searching", "message": "Searching topic: llm"})
+        return copy.deepcopy(self.fetch_result)
+
+
+class ControlledTaskThread(QObject):
+    progress = Signal(dict)
+    succeeded = Signal(object)
+    failed = Signal(str)
+    finished = Signal()
+    last_instance = None
+
+    def __init__(self, runner, parent=None) -> None:
+        super().__init__(parent)
+        self._runner = runner
+        ControlledTaskThread.last_instance = self
+
+    def start(self) -> None:
+        return None
+
+    def complete_success(self) -> None:
+        result = asyncio.run(self._runner(self.progress.emit))
+        self.succeeded.emit(result)
+        self.finished.emit()
+
+    def complete_failure(self) -> None:
+        try:
+            asyncio.run(self._runner(self.progress.emit))
+        except Exception as exc:  # pragma: no cover
+            self.failed.emit(str(exc))
+        self.finished.emit()
+
+
+@pytest.fixture(scope="module")
+def qapp() -> QApplication:
+    app = QApplication.instance() or QApplication([])
+    app.setQuitOnLastWindowClosed(False)
+    return app
+
+
+@pytest.fixture
+def fake_services() -> FakeServices:
+    return FakeServices()
+
+
+def test_github_workspace_reload_selects_latest_snapshot(fake_services: FakeServices, qapp: QApplication) -> None:
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+
+    facade.reload()
+    qapp.processEvents()
+
+    assert facade.currentDate == "2026-04-15"
+    assert facade.snapshotModel.count == 2
+    assert facade.projectModel.count == 2
+    assert facade.selectedProjectName == "acme/alpha"
+    assert facade.summaryText.startswith("2026-04-15")
+    assert facade.statusTone == "neutral"
+    assert facade.availableLanguages[0]["value"] == "Python"
+
+
+def test_github_workspace_filter_changes_mark_stale_and_reload_clears_it(
+    fake_services: FakeServices, qapp: QApplication
+) -> None:
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+    facade.reload()
+
+    facade.setTrendFilter("rising")
+    qapp.processEvents()
+
+    assert facade.stale is True
+
+    facade.reload()
+    qapp.processEvents()
+
+    assert facade.stale is False
+    assert facade.projectModel.count == 1
+    assert facade.selectedProjectName == "acme/alpha"
+
+
+def test_github_workspace_snapshot_and_project_selection_refresh_detail(
+    fake_services: FakeServices, qapp: QApplication
+) -> None:
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+    facade.reload()
+
+    facade.selectDate("2026-04-14")
+    qapp.processEvents()
+
+    assert facade.currentDate == "2026-04-14"
+    assert facade.projectModel.count == 1
+    assert facade.selectedProjectName == "acme/gamma"
+
+    facade.selectDate("2026-04-15")
+    facade.selectProjectRow(1)
+    qapp.processEvents()
+
+    assert facade.selectedProjectName == "acme/beta"
+    assert facade.selectedProjectUrl == "https://github.com/acme/beta"
+    assert facade.selectedProjectDescription == "Beta helper"
+
+
+def test_github_workspace_run_fetch_updates_busy_and_notice(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+    facade.reload()
+
+    facade.runFetch()
+    qapp.processEvents()
+
+    assert facade.busy is True
+    assert facade.noticeMessage == "正在抓取 GitHub 趋势快照..."
+    assert ControlledTaskThread.last_instance is not None
+
+    ControlledTaskThread.last_instance.complete_success()
+    qapp.processEvents()
+
+    assert facade.busy is False
+    assert facade.lastFetchOutcome == "success"
+    assert facade.statusTone == "neutral"
+    assert facade.noticeMessage == SUCCESS_NOTICE
+    assert facade.currentDate == "2026-04-15"
+
+
+def test_github_workspace_run_fetch_degraded_keeps_current_snapshot(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_services.fetch_result = _fetch_result(outcome="degraded", reason="rate_limit")
+    monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+    facade.reload()
+    facade.selectDate("2026-04-14")
+
+    facade.runFetch()
+    ControlledTaskThread.last_instance.complete_success()
+    qapp.processEvents()
+
+    assert facade.busy is False
+    assert facade.lastFetchOutcome == "degraded"
+    assert facade.statusTone == "warning"
+    assert facade.errorMessage == ""
+    assert facade.noticeMessage == DEGRADED_NOTICE_WITH_SNAPSHOT
+    assert facade.currentDate == "2026-04-14"
+    assert facade.projectModel.count == 1
+    assert facade.selectedProjectName == "acme/gamma"
+
+
+def test_github_workspace_run_fetch_degraded_without_official_snapshot(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_services.github_dates = []
+    fake_services.snapshots = {}
+    fake_services.fetch_result = _fetch_result(outcome="degraded", reason="missing_token")
+    monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+
+    facade.runFetch()
+    ControlledTaskThread.last_instance.complete_success()
+    qapp.processEvents()
+
+    assert facade.busy is False
+    assert facade.lastFetchOutcome == "degraded"
+    assert facade.statusTone == "warning"
+    assert facade.noticeMessage == DEGRADED_NOTICE_WITHOUT_SNAPSHOT
+    assert facade.currentDate == ""
+    assert facade.projectModel.count == 0
+
+
+def test_github_workspace_run_fetch_failure_surfaces_error(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_services.fetch_error = "github failed"
+    monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+    facade.reload()
+
+    facade.runFetch()
+    qapp.processEvents()
+    assert facade.busy is True
+
+    ControlledTaskThread.last_instance.complete_failure()
+    qapp.processEvents()
+
+    assert facade.busy is False
+    assert facade.lastFetchOutcome == "error"
+    assert facade.statusTone == "error"
+    assert facade.errorMessage == "github failed"
