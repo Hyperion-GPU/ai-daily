@@ -26,11 +26,7 @@ jobs:
           python -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
       - name: Verify pinned PySide6 version
         run: |
-          python - <<'PY'
-          import PySide6
-          assert PySide6.__version__ == "6.8.1.1", PySide6.__version__
-          print(PySide6.__version__)
-          PY
+          python -c "import PySide6; assert PySide6.__version__ == '6.8.1.1', PySide6.__version__; print(PySide6.__version__)"
       - name: Verify generated contracts
         run: python scripts/export_contracts.py --check
       - name: Run desktop QML mainline smoke suite
