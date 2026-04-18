@@ -7,7 +7,9 @@ from pathlib import Path
 from src.contracts import (
     CONTRACT_DEFINITIONS,
     DigestQueryParams,
+    GitHubProject,
     GitHubQueryParams,
+    GitHubTrendingResponse,
     build_contract_schema_json,
     build_frontend_typescript,
 )
@@ -56,6 +58,38 @@ def test_github_query_contract_matches_api_signature_shape():
     assert set(_model_enum_choices(GitHubQueryParams, "trend")) == set(
         _signature_pattern_choices(api.get_github_trending_by_date, "trend")
     )
+
+
+def test_github_trending_contract_accepts_missing_optional_project_fields():
+    payload = {
+        "date": "2026-03-16",
+        "generated_at": "2026-03-16T10:00:00+08:00",
+        "stats": {
+            "total": 1,
+            "by_category": {"llm": 1},
+            "by_language": {},
+        },
+        "projects": [
+            {
+                "id": "acme/minimal",
+                "full_name": "acme/minimal",
+                "html_url": "https://github.com/acme/minimal",
+                "stars": 42,
+                "forks": 3,
+                "open_issues": 0,
+                "topics": ["llm"],
+                "category": "llm",
+            }
+        ],
+    }
+
+    result = GitHubTrendingResponse.model_validate(payload)
+
+    assert isinstance(result.projects[0], GitHubProject)
+    assert result.projects[0].description is None
+    assert result.projects[0].description_zh is None
+    assert result.projects[0].owner_avatar is None
+    assert result.projects[0].trend is None
 
 
 def test_generated_frontend_types_are_up_to_date():
