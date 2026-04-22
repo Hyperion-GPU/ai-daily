@@ -255,6 +255,64 @@ def test_digest_workspace_reload_selects_latest_and_reuses_base_snapshot(
     ]
 
 
+def test_digest_workspace_prunes_selected_tags_before_available_tags_signal(
+    fake_services: FakeServices,
+    qapp: QApplication,
+) -> None:
+    facade = DigestWorkspaceFacade(lambda: fake_services)
+    facade.reload()
+    qapp.processEvents()
+
+    facade.toggleTagSelection("agents")
+    qapp.processEvents()
+    assert facade.selectedTags == ["agents"]
+
+    events: list[tuple[str, list[str], list[str]]] = []
+
+    def record_selected_tags() -> None:
+        events.append(
+            (
+                "selected",
+                list(facade.selectedTags),
+                [item["value"] for item in facade.availableTags],
+            )
+        )
+
+    def record_available_tags() -> None:
+        events.append(
+            (
+                "available",
+                list(facade.selectedTags),
+                [item["value"] for item in facade.availableTags],
+            )
+        )
+
+    facade.selectedTagsChanged.connect(record_selected_tags)
+    facade.availableTagsChanged.connect(record_available_tags)
+
+    facade.selectDate("2026-04-14")
+    qapp.processEvents()
+
+    assert facade.selectedTags == []
+    assert [item["value"] for item in facade.availableTags] == ["llm"]
+    assert facade.filteredArticleCount == 1
+    assert facade.selectedArticleId == "gamma"
+    assert events == [
+        ("selected", [], ["llm"]),
+        ("available", [], ["llm"]),
+    ]
+    assert fake_services.digest_calls[-1] == (
+        "2026-04-14",
+        {
+            "tags": [],
+            "category": None,
+            "min_importance": 1,
+            "sort": "importance",
+            "q": None,
+        },
+    )
+
+
 def test_digest_workspace_filter_changes_are_debounced_and_reuse_base_snapshot(
     fake_services: FakeServices,
     qapp: QApplication,

@@ -119,7 +119,8 @@ class DigestWorkspaceFacade(QObject):
         self._stale = value
         self.staleChanged.emit()
 
-    def _set_available_tags(self, tags: list[dict[str, Any]]) -> None:
+    @staticmethod
+    def _normalize_available_tags(tags: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
         for tag in tags:
             value = str(tag.get("value", "") or "").strip()
@@ -132,10 +133,14 @@ class DigestWorkspaceFacade(QObject):
                     "count": int(tag.get("count", 0) or 0),
                 }
             )
+        return normalized
+
+    def _replace_available_tags(self, tags: list[dict[str, Any]]) -> bool:
+        normalized = self._normalize_available_tags(tags)
         if normalized == self._available_tags:
-            return
+            return False
         self._available_tags = normalized
-        self.availableTagsChanged.emit()
+        return True
 
     def _set_archive_count(self, value: int) -> None:
         value = int(value)
@@ -183,15 +188,19 @@ class DigestWorkspaceFacade(QObject):
         self._last_fetch_outcome = value
         self.lastFetchOutcomeChanged.emit()
 
-    def _sync_selected_tags_to_available(self) -> None:
-        if self._filters.sync_selected_tags_to_available(self._available_tags):
+    def _sync_available_tags_and_selection(self, tags: list[dict[str, Any]]) -> None:
+        available_tags_changed = self._replace_available_tags(tags)
+        selected_tags_changed = self._filters.sync_selected_tags_to_available(self._available_tags)
+        if selected_tags_changed:
             self.selectedTagsChanged.emit()
+        if available_tags_changed:
+            self.availableTagsChanged.emit()
 
     def _clear_article_state(self) -> None:
         self._article_model.clear()
         self._set_current_date_article_count(0)
         self._set_filtered_article_count(0)
-        self._set_available_tags([])
+        self._sync_available_tags_and_selection([])
         self._set_summary_text("")
         self.hasSelectionChanged.emit()
         self.selectedArticleChanged.emit()
@@ -252,12 +261,18 @@ class DigestWorkspaceFacade(QObject):
     def _load_snapshot_for_date(self, date_value: str, *, request_id: int) -> None:
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
-        snapshot_load = self._snapshot_loader.load(date_value, self._filters)
+        base_snapshot_load = self._snapshot_loader.load(date_value, DigestFilterState())
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
-        self._set_current_date_article_count(snapshot_load.current_article_count)
-        self._set_available_tags(snapshot_load.available_tags)
-        self._sync_selected_tags_to_available()
+        self._set_current_date_article_count(base_snapshot_load.current_article_count)
+        self._sync_available_tags_and_selection(base_snapshot_load.available_tags)
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
+        snapshot_load = (
+            base_snapshot_load
+            if self._filters.is_base()
+            else self._snapshot_loader.load(date_value, self._filters)
+        )
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
         self._apply_article_snapshot(snapshot_load.filtered_snapshot)
