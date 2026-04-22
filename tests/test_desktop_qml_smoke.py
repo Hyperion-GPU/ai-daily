@@ -291,6 +291,7 @@ def test_shell_switches_to_real_github_workspace() -> None:
         assert root.findChild(QObject, "githubProjectList") is not None
         assert root.findChild(QObject, "githubDetailPanel") is not None
         assert root.findChild(QObject, "githubApplyFiltersButton") is not None
+        assert root.findChild(QObject, "githubProgressBar") is not None
     finally:
         runtime.close()
 
@@ -308,5 +309,6 @@ def test_shell_switches_to_real_ai_daily_workspace() -> None:
         assert root.findChild(QObject, "aiDailyArticleList") is not None
         assert root.findChild(QObject, "aiDailyDetailPanel") is not None
         assert root.findChild(QObject, "aiDailyOpenArticleButton") is not None
+        assert root.findChild(QObject, "aiDailyProgressBar") is not None
     finally:
         runtime.close()

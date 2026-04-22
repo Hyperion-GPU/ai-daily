@@ -152,6 +152,8 @@ Item {
             Layout.fillWidth: true
             tokens: root.tokens
             busy: githubFacade ? githubFacade.busy : false
+            progressValue: githubFacade ? githubFacade.fetchProgressValue : -1
+            progressBarObjectName: "githubProgressBar"
             tone: githubFacade ? githubFacade.statusTone : "neutral"
             text: root.statusText()
         }

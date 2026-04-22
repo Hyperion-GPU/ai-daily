@@ -86,6 +86,34 @@ TestCase {
         shell.destroy()
     }
 
+    function test_detailOpenArticleButtonScrollsIntoViewInShortWindow() {
+        const shell = createTemporaryObject(shellComponent, testCase)
+        verify(shell !== null)
+
+        shell.height = 620
+        appShellFacade.selectWorkspace("ai-daily")
+        wait(50)
+
+        const detailPanel = findChild(shell, "aiDailyDetailPanel")
+        const detailColumn = findChild(shell, "aiDailyDetailColumn")
+        const openButton = findChild(shell, "aiDailyOpenArticleButton")
+        verify(detailPanel !== null)
+        verify(detailColumn !== null)
+        verify(openButton !== null)
+        verify(detailPanel.height > 0)
+        verify(detailPanel.contentHeight >= detailColumn.y + detailColumn.implicitHeight)
+        verify(detailPanel.contentHeight > detailPanel.height)
+
+        detailPanel.contentItem.contentY = Math.max(0, detailPanel.contentHeight - detailPanel.height)
+        wait(20)
+
+        const buttonBottomInPanel = openButton.mapToItem(detailPanel, 0, openButton.height).y
+        verify(buttonBottomInPanel > 0)
+        verify(buttonBottomInPanel <= detailPanel.height)
+
+        shell.destroy()
+    }
+
     function test_fetchSuccessSelectsLatestArchive() {
         const shell = createTemporaryObject(shellComponent, testCase)
         verify(shell !== null)
@@ -96,9 +124,14 @@ TestCase {
         desktopDigestFacade.selectDate("2026-04-14")
         compare(desktopDigestFacade.currentDate, "2026-04-14")
 
+        const progressBar = findChild(shell, "aiDailyProgressBar")
+        verify(progressBar !== null)
+
         desktopDigestFacade.runFetch()
+        verify(desktopDigestFacade.pipelineProgressValue > 0)
         tryCompare(desktopDigestFacade, "lastFetchOutcome", "success", 3000)
         tryCompare(desktopDigestFacade, "currentDate", "2026-04-16", 3000)
+        compare(desktopDigestFacade.pipelineProgressValue, 100)
         compare(desktopDigestFacade.selectedArticle.title, "Fresh digest after fetch")
 
         shell.destroy()
