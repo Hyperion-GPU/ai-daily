@@ -26,6 +26,8 @@ TestCase {
             desktopTestSetup.resetDigestState()
         }
         if (desktopDigestFacade) {
+            desktopDigestFacade.clearFilters()
+            desktopDigestFacade.reload()
             desktopDigestFacade.markStale()
         }
     }
@@ -55,16 +57,16 @@ TestCase {
         wait(50)
 
         desktopDigestFacade.setCategoryFilter("official")
-        compare(desktopDigestFacade.filteredArticleCount, 1)
+        tryCompare(desktopDigestFacade, "filteredArticleCount", 1, 1000)
 
         desktopDigestFacade.toggleTagSelection("OpenAI")
         compare(desktopDigestFacade.selectedTags.length, 1)
-        compare(desktopDigestFacade.articleModel.count, 1)
+        tryCompare(desktopDigestFacade.articleModel, "count", 1, 1000)
 
         desktopDigestFacade.clearFilters()
         compare(desktopDigestFacade.selectedTags.length, 0)
         compare(desktopDigestFacade.categoryFilter, "")
-        compare(desktopDigestFacade.articleModel.count, 2)
+        tryCompare(desktopDigestFacade.articleModel, "count", 2, 1000)
 
         shell.destroy()
     }

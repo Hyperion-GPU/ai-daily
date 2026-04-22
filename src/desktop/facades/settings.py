@@ -1,17 +1,78 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from PySide6.QtCore import QObject, Property, Signal, Slot
+from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtCore import QUrl
 
 from src.services import ApplicationServices
 
 from ..tasks import SettingsCommandGateway
 
 
-_KNOWN_PROVIDERS = ("siliconflow", "newapi")
+@dataclass(frozen=True)
+class ProviderFieldSchema:
+    key: str
+    label: str
+    legacy_snapshot_key: str | None = None
+    default: str = ""
+
+    @property
+    def snapshot_key(self) -> str:
+        return self.legacy_snapshot_key or self.key
+
+    def to_metadata(self) -> dict[str, str]:
+        return {
+            "key": self.key,
+            "label": self.label,
+        }
+
+
+@dataclass(frozen=True)
+class ProviderSchema:
+    value: str
+    label: str
+    fields: tuple[ProviderFieldSchema, ...]
+
+    def default_settings(self) -> dict[str, str]:
+        return {field.key: field.default for field in self.fields}
+
+    def coerce_settings(self, raw: Any) -> dict[str, str]:
+        payload = raw if isinstance(raw, dict) else {}
+        return {
+            field.key: str(payload.get(field.key, field.default) or "").strip()
+            for field in self.fields
+        }
+
+    def to_metadata(self) -> dict[str, Any]:
+        return {
+            "value": self.value,
+            "label": self.label,
+            "fields": [field.to_metadata() for field in self.fields],
+        }
+
+
+_PROVIDER_SCHEMAS = (
+    ProviderSchema(
+        value="siliconflow",
+        label="siliconflow",
+        fields=(
+            ProviderFieldSchema("base_url", "Base URL"),
+            ProviderFieldSchema("model", "Model"),
+        ),
+    ),
+    ProviderSchema(
+        value="newapi",
+        label="newapi",
+        fields=(
+            ProviderFieldSchema("base_url", "Base URL"),
+            ProviderFieldSchema("model", "Model"),
+        ),
+    ),
+)
+_PROVIDER_REGISTRY = {schema.value: schema for schema in _PROVIDER_SCHEMAS}
+_DEFAULT_PROVIDER = "siliconflow"
 
 
 class SettingsFacade(QObject):
@@ -44,10 +105,10 @@ class SettingsFacade(QObject):
         self._services_getter = services_getter
         self._gateway = SettingsCommandGateway(services_getter)
         self._suspend_stale = False
-        self._provider = "siliconflow"
+        self._provider = _DEFAULT_PROVIDER
         self._provider_settings = {
-            provider: {"base_url": "", "model": ""}
-            for provider in _KNOWN_PROVIDERS
+            schema.value: schema.default_settings()
+            for schema in _PROVIDER_SCHEMAS
         }
         self._timezone = "Asia/Shanghai"
         self._base_url = ""
@@ -108,33 +169,35 @@ class SettingsFacade(QObject):
         self.busyChanged.emit()
 
     def _normalize_provider(self, value: str) -> str:
-        value = value.strip() or "siliconflow"
-        return value if value in _KNOWN_PROVIDERS else "siliconflow"
+        value = value.strip() or _DEFAULT_PROVIDER
+        return value if value in _PROVIDER_REGISTRY else _DEFAULT_PROVIDER
+
+    def _provider_schema(self, provider: str | None = None) -> ProviderSchema:
+        return _PROVIDER_REGISTRY[self._normalize_provider(provider or self._provider)]
 
     def _coerce_provider_settings(self, raw: Any) -> dict[str, dict[str, str]]:
-        settings = {
-            provider: {"base_url": "", "model": ""}
-            for provider in _KNOWN_PROVIDERS
+        raw_settings = raw if isinstance(raw, dict) else {}
+        return {
+            schema.value: schema.coerce_settings(raw_settings.get(schema.value, {}))
+            for schema in _PROVIDER_SCHEMAS
         }
-        if not isinstance(raw, dict):
-            return settings
-        for provider in _KNOWN_PROVIDERS:
-            payload = raw.get(provider, {})
-            if not isinstance(payload, dict):
-                continue
-            settings[provider] = {
-                "base_url": str(payload.get("base_url", "") or "").strip(),
-                "model": str(payload.get("model", "") or "").strip(),
-            }
-        return settings
+
+    def _provider_field(self, provider: str, field_key: str) -> str:
+        return str(self._provider_settings[self._normalize_provider(provider)].get(field_key, "") or "")
+
+    def _set_provider_field(self, provider: str, field_key: str, value: str) -> None:
+        provider = self._normalize_provider(provider)
+        self._provider_settings[provider][field_key] = value.strip()
+
+    def _active_provider_field(self, field_key: str) -> str:
+        return self._provider_field(self._provider, field_key)
 
     def _apply_snapshot(self, snapshot: dict[str, Any]) -> None:
         provider = self._normalize_provider(str(snapshot.get("provider", "siliconflow") or "siliconflow"))
         provider_settings = self._coerce_provider_settings(snapshot.get("provider_settings"))
-        if not provider_settings[provider]["base_url"]:
-            provider_settings[provider]["base_url"] = str(snapshot.get("base_url", "") or "").strip()
-        if not provider_settings[provider]["model"]:
-            provider_settings[provider]["model"] = str(snapshot.get("model", "") or "").strip()
+        for field in self._provider_schema(provider).fields:
+            if not provider_settings[provider][field.key]:
+                provider_settings[provider][field.key] = str(snapshot.get(field.snapshot_key, "") or "").strip()
 
         self._suspend_stale = True
         try:
@@ -144,12 +207,12 @@ class SettingsFacade(QObject):
                 self._provider = provider
                 self.providerChanged.emit()
 
-            base_url = self._provider_settings[self._provider]["base_url"]
+            base_url = self._active_provider_field("base_url")
             if base_url != self._base_url:
                 self._base_url = base_url
                 self.baseUrlChanged.emit()
 
-            model = self._provider_settings[self._provider]["model"]
+            model = self._active_provider_field("model")
             if model != self._model:
                 self._model = model
                 self.modelChanged.emit()
@@ -256,6 +319,9 @@ class SettingsFacade(QObject):
     def get_provider(self) -> str:
         return self._provider
 
+    def get_available_providers(self) -> list[dict[str, Any]]:
+        return [schema.to_metadata() for schema in _PROVIDER_SCHEMAS]
+
     @Slot(str)
     def setProvider(self, value: str) -> None:
         value = self._normalize_provider(value)
@@ -263,10 +329,7 @@ class SettingsFacade(QObject):
             return
 
         self._provider = value
-        next_settings = self._provider_settings.get(
-            value,
-            {"base_url": "", "model": ""},
-        )
+        next_settings = self._provider_settings[value]
         previous_base_url = self._base_url
         previous_model = self._model
         self._base_url = next_settings["base_url"]
@@ -299,7 +362,7 @@ class SettingsFacade(QObject):
         if value == self._base_url:
             return
         self._base_url = value
-        self._provider_settings[self._provider]["base_url"] = value
+        self._set_provider_field(self._provider, "base_url", value)
         self.baseUrlChanged.emit()
         self._mark_stale()
 
@@ -312,7 +375,7 @@ class SettingsFacade(QObject):
         if value == self._model:
             return
         self._model = value
-        self._provider_settings[self._provider]["model"] = value
+        self._set_provider_field(self._provider, "model", value)
         self.modelChanged.emit()
         self._mark_stale()
 
@@ -470,6 +533,7 @@ class SettingsFacade(QObject):
         return self._validation_summary
 
     provider = Property(str, get_provider, setProvider, notify=providerChanged)
+    availableProviders = Property("QVariantList", get_available_providers, constant=True)
     timezone = Property(str, get_timezone, setTimezone, notify=timezoneChanged)
     baseUrl = Property(str, get_base_url, setBaseUrl, notify=baseUrlChanged)
     model = Property(str, get_model, setModel, notify=modelChanged)

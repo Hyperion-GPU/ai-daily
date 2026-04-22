@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, Property, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 
 from src.services import ApplicationServices
 
 from ..models import GithubProjectListModel, GithubSnapshotListModel
 from ..tasks import GithubCommandGateway
-from ..workers import AsyncTaskThread
+from ..workers import AsyncTaskThread, normalize_failure_payload
 
 
 _SORT_LABELS = {
@@ -28,6 +28,7 @@ _FETCH_PROGRESS_STAGE_PERCENT = {
     "completed": 100,
     "error": 100,
 }
+_FILTER_RELOAD_DEBOUNCE_MS = 120
 
 
 class GithubWorkspaceFacade(QObject):
@@ -62,6 +63,15 @@ class GithubWorkspaceFacade(QObject):
         self._project_model.selectionChanged.connect(self._sync_selected_project_properties)
         self._project_model.selectionChanged.connect(self.hasSelectionChanged)
         self._task_thread: AsyncTaskThread | None = None
+        self._task_threads: dict[int, AsyncTaskThread] = {}
+        self._task_request_id = 0
+        self._snapshot_request_id = 0
+        self._pending_filter_request_id = 0
+        self._base_snapshot_cache: dict[str, dict[str, Any] | None] = {}
+        self._filter_reload_timer = QTimer(self)
+        self._filter_reload_timer.setSingleShot(True)
+        self._filter_reload_timer.setInterval(_FILTER_RELOAD_DEBOUNCE_MS)
+        self._filter_reload_timer.timeout.connect(self._apply_pending_filter_reload)
         self._current_date = ""
         self._busy = False
         self._error_message = ""
@@ -104,6 +114,9 @@ class GithubWorkspaceFacade(QObject):
             "searchQuery": "",
             "trendFilter": "",
         }
+
+    def _filters_are_base(self) -> bool:
+        return self._filters_payload() == self._base_filters()
 
     def _set_busy(self, value: bool) -> None:
         value = bool(value)
@@ -237,6 +250,39 @@ class GithubWorkspaceFacade(QObject):
         ]
         self._set_available_languages(items)
 
+    def _load_base_snapshot(self, date_value: str) -> dict[str, Any] | None:
+        if date_value not in self._base_snapshot_cache:
+            self._base_snapshot_cache[date_value] = self._gateway.load_snapshot(date_value, self._base_filters())
+        return self._base_snapshot_cache[date_value]
+
+    def _invalidate_base_snapshot_cache(self) -> None:
+        self._base_snapshot_cache.clear()
+
+    def _next_snapshot_request_id(self) -> int:
+        self._snapshot_request_id += 1
+        return self._snapshot_request_id
+
+    def _is_latest_snapshot_request(self, request_id: int) -> bool:
+        return request_id == self._snapshot_request_id
+
+    def _cancel_pending_filter_reload(self) -> None:
+        if self._filter_reload_timer.isActive():
+            self._filter_reload_timer.stop()
+        self._pending_filter_request_id = 0
+
+    def _schedule_current_date_reload(self) -> None:
+        if not self._current_date:
+            return
+        self._pending_filter_request_id = self._next_snapshot_request_id()
+        self._filter_reload_timer.start()
+
+    def _apply_pending_filter_reload(self) -> None:
+        request_id = self._pending_filter_request_id
+        self._pending_filter_request_id = 0
+        if not request_id or not self._is_latest_snapshot_request(request_id) or not self._current_date:
+            return
+        self._load_project_snapshot(self._current_date, request_id=request_id)
+
     def _update_summary(self, snapshot: dict[str, Any] | None) -> None:
         if not snapshot or not self._current_date:
             self._set_summary_text("")
@@ -259,8 +305,12 @@ class GithubWorkspaceFacade(QObject):
         self._sync_selected_project_properties()
         self._update_summary(snapshot)
 
-    def _load_project_snapshot(self, date_value: str) -> None:
-        raw_snapshot = self._gateway.load_snapshot(date_value, self._base_filters())
+    def _load_project_snapshot(self, date_value: str, *, request_id: int) -> None:
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
+        raw_snapshot = self._load_base_snapshot(date_value)
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
         if raw_snapshot is not None:
             self._snapshot_model.update_item_metadata(
                 date_value,
@@ -271,7 +321,12 @@ class GithubWorkspaceFacade(QObject):
         else:
             self._update_available_languages(None)
 
-        filtered_snapshot = self._gateway.load_snapshot(date_value, self._filters_payload())
+        if self._filters_are_base():
+            filtered_snapshot = raw_snapshot
+        else:
+            filtered_snapshot = self._gateway.load_snapshot(date_value, self._filters_payload())
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
         self._apply_project_snapshot(filtered_snapshot)
         self._set_stale(False)
 
@@ -347,9 +402,11 @@ class GithubWorkspaceFacade(QObject):
 
     @Slot()
     def reload(self) -> None:
+        self._cancel_pending_filter_reload()
+        self._invalidate_base_snapshot_cache()
         self._set_error_message("")
         if not self._current_date:
-            self.reloadDates()
+            self._reload_dates()
             if not self._current_date:
                 self._project_model.clear()
                 self._sync_selected_project_properties()
@@ -359,22 +416,33 @@ class GithubWorkspaceFacade(QObject):
                 return
         self.selectDate(self._current_date)
 
-    @Slot()
-    def reloadDates(self) -> None:
+    def _reload_dates(self, *, select_latest: bool = False) -> str:
         self._set_error_message("")
         payload = self._gateway.list_dates()
         items = list(payload.get("dates", []))
+        available_dates = {str(item.get("date", "") or "") for item in items}
+        for cached_date in list(self._base_snapshot_cache):
+            if cached_date not in available_dates:
+                self._base_snapshot_cache.pop(cached_date, None)
         latest = str(payload.get("latest", "") or "")
-        desired_date = self._current_date if self._current_date else latest
+        desired_date = latest if select_latest else (self._current_date if self._current_date else latest)
         if desired_date and not any(item.get("date") == desired_date for item in items):
             desired_date = latest
         self._snapshot_model.replace_items(items)
         self._snapshot_model.set_selected_date(desired_date)
         self._set_current_date(desired_date)
+        return desired_date
+
+    @Slot()
+    def reloadDates(self) -> None:
+        self._cancel_pending_filter_reload()
+        self._reload_dates()
 
     @Slot(str)
     def selectDate(self, date_value: str) -> None:
         date_value = date_value.strip()
+        self._cancel_pending_filter_reload()
+        request_id = self._next_snapshot_request_id()
         if not date_value:
             self._set_current_date("")
             self._snapshot_model.set_selected_date("")
@@ -388,7 +456,7 @@ class GithubWorkspaceFacade(QObject):
         self._set_error_message("")
         self._snapshot_model.set_selected_date(date_value)
         self._set_current_date(date_value)
-        self._load_project_snapshot(date_value)
+        self._load_project_snapshot(date_value, request_id=request_id)
 
     @Slot(int)
     def selectSnapshotRow(self, row: int) -> None:
@@ -418,20 +486,17 @@ class GithubWorkspaceFacade(QObject):
         self._category_filter = value
         self.categoryFilterChanged.emit()
         self._mark_stale()
+        self._schedule_current_date_reload()
 
     @Slot("QVariantList")
     def setSelectedLanguages(self, value) -> None:
-        normalized = [
-            str(item).strip()
-            for item in list(value or [])
-            if str(item).strip()
-        ]
-        normalized = normalized[:1]
+        normalized = _normalize_language_selection(value)
         if normalized == self._selected_languages:
             return
         self._selected_languages = normalized
         self.selectedLanguagesChanged.emit()
         self._mark_stale()
+        self._schedule_current_date_reload()
 
     @Slot(int)
     def setMinStars(self, value: int) -> None:
@@ -441,6 +506,7 @@ class GithubWorkspaceFacade(QObject):
         self._min_stars = value
         self.minStarsChanged.emit()
         self._mark_stale()
+        self._schedule_current_date_reload()
 
     @Slot(str)
     def setSortKey(self, value: str) -> None:
@@ -452,6 +518,7 @@ class GithubWorkspaceFacade(QObject):
         self._sort_key = value
         self.sortKeyChanged.emit()
         self._mark_stale()
+        self._schedule_current_date_reload()
 
     @Slot(str)
     def setSearchQuery(self, value: str) -> None:
@@ -461,6 +528,7 @@ class GithubWorkspaceFacade(QObject):
         self._search_query = value
         self.searchQueryChanged.emit()
         self._mark_stale()
+        self._schedule_current_date_reload()
 
     @Slot(str)
     def setTrendFilter(self, value: str) -> None:
@@ -472,43 +540,66 @@ class GithubWorkspaceFacade(QObject):
         self._trend_filter = value
         self.trendFilterChanged.emit()
         self._mark_stale()
+        self._schedule_current_date_reload()
 
     @Slot()
     def clearFilters(self) -> None:
-        self._category_filter = ""
-        self.categoryFilterChanged.emit()
-        self._selected_languages = []
-        self.selectedLanguagesChanged.emit()
-        self._min_stars = 0
-        self.minStarsChanged.emit()
-        self._sort_key = "stars"
-        self.sortKeyChanged.emit()
-        self._search_query = ""
-        self.searchQueryChanged.emit()
-        self._trend_filter = ""
-        self.trendFilterChanged.emit()
-        self._mark_stale()
-        if self._current_date:
-            self.reload()
+        changed = False
+        if self._category_filter:
+            self._category_filter = ""
+            self.categoryFilterChanged.emit()
+            changed = True
+        if self._selected_languages:
+            self._selected_languages = []
+            self.selectedLanguagesChanged.emit()
+            changed = True
+        if self._min_stars != 0:
+            self._min_stars = 0
+            self.minStarsChanged.emit()
+            changed = True
+        if self._sort_key != "stars":
+            self._sort_key = "stars"
+            self.sortKeyChanged.emit()
+            changed = True
+        if self._search_query:
+            self._search_query = ""
+            self.searchQueryChanged.emit()
+            changed = True
+        if self._trend_filter:
+            self._trend_filter = ""
+            self.trendFilterChanged.emit()
+            changed = True
+        if changed:
+            self._mark_stale()
+            self._schedule_current_date_reload()
 
     @Slot()
     def runFetch(self) -> None:
-        if self._task_thread is not None:
-            return
+        request_id = self._next_task_request_id()
         self._set_busy(True)
         self._set_last_fetch_outcome("")
         self._set_error_message("")
         self._set_notice_message("正在抓取 GitHub 趋势快照...")
         self._set_fetch_progress_value(5)
-        self._task_thread = AsyncTaskThread(
+        task_thread = AsyncTaskThread(
             lambda emit: self._gateway.run_fetch(progress_callback=emit),
             self,
         )
-        self._task_thread.progress.connect(self._handle_fetch_progress)
-        self._task_thread.succeeded.connect(self._handle_fetch_success)
-        self._task_thread.failed.connect(self._handle_fetch_failure)
-        self._task_thread.finished.connect(self._clear_task)
-        self._task_thread.start()
+        self._task_threads[request_id] = task_thread
+        self._task_thread = task_thread
+        task_thread.progress.connect(
+            lambda payload, request_id=request_id: self._handle_fetch_progress(request_id, payload)
+        )
+        task_thread.succeeded.connect(
+            lambda result, request_id=request_id: self._handle_fetch_success(request_id, result)
+        )
+        task_thread.failed.connect(
+            lambda failure, request_id=request_id: self._handle_fetch_failure(request_id, failure)
+        )
+        task_thread.finished.connect(
+            lambda request_id=request_id, task_thread=task_thread: self._clear_task(request_id, task_thread)
+        )
+        task_thread.start()
 
     @Slot()
     def openSelectedRepo(self) -> None:
@@ -516,11 +607,24 @@ class GithubWorkspaceFacade(QObject):
             return
         QDesktopServices.openUrl(QUrl(self._selected_project_url))
 
-    def _clear_task(self) -> None:
-        self._task_thread = None
-        self._set_busy(False)
+    def _next_task_request_id(self) -> int:
+        self._task_request_id += 1
+        return self._task_request_id
 
-    def _handle_fetch_progress(self, payload: dict[str, Any]) -> None:
+    def _is_latest_task(self, request_id: int) -> bool:
+        return request_id == self._task_request_id
+
+    def _clear_task(self, request_id: int, task_thread: AsyncTaskThread) -> None:
+        self._task_threads.pop(request_id, None)
+        if self._task_thread is task_thread:
+            self._task_thread = None
+        task_thread.deleteLater()
+        if self._is_latest_task(request_id):
+            self._set_busy(False)
+
+    def _handle_fetch_progress(self, request_id: int, payload: dict[str, Any]) -> None:
+        if not self._is_latest_task(request_id):
+            return
         stage = str(payload.get("stage", "") or "running")
         message = str(payload.get("message", "") or "GitHub 趋势抓取中")
         current = payload.get("current")
@@ -540,7 +644,9 @@ class GithubWorkspaceFacade(QObject):
             return "GitHub 抓取受限，已保留当前正式快照；恢复 GITHUB_TOKEN 后重试。"
         return "GitHub 抓取受限，未生成正式快照；请配置 GITHUB_TOKEN 后重试。"
 
-    def _handle_fetch_success(self, result: object) -> None:
+    def _handle_fetch_success(self, request_id: int, result: object) -> None:
+        if not self._is_latest_task(request_id):
+            return
         payload = dict(result or {})
         if str(payload.get("outcome", "") or "success") == "degraded":
             self._set_last_fetch_outcome("degraded")
@@ -553,18 +659,18 @@ class GithubWorkspaceFacade(QObject):
         self._set_last_fetch_outcome("success")
         self._set_fetch_progress_value(100)
         self._set_notice_message("GitHub 趋势快照已刷新。")
-        self.reloadDates()
-        latest_date = ""
-        for item in self._gateway.list_dates().get("dates", []):
-            if item.get("isLatest"):
-                latest_date = str(item.get("date", "") or "")
-                break
+        self._invalidate_base_snapshot_cache()
+        latest_date = self._reload_dates(select_latest=True)
         if latest_date:
             self.selectDate(latest_date)
         elif isinstance(snapshot, dict) and snapshot.get("date"):
             self.selectDate(str(snapshot.get("date", "") or ""))
 
-    def _handle_fetch_failure(self, message: str) -> None:
+    def _handle_fetch_failure(self, request_id: int, failure: object) -> None:
+        if not self._is_latest_task(request_id):
+            return
+        payload = normalize_failure_payload(failure)
+        message = str(payload.get("message", "") or "任务失败")
         self._set_last_fetch_outcome("error")
         self._set_fetch_progress_value(100)
         self._set_error_message(message)
@@ -605,3 +711,13 @@ class GithubWorkspaceFacade(QObject):
     )
     snapshotModel = Property(QObject, get_snapshot_model, constant=True)
     projectModel = Property(QObject, get_project_model, constant=True)
+
+
+def _normalize_language_selection(value) -> list[str]:
+    raw_items = [value] if isinstance(value, str) else list(value or [])
+    normalized: list[str] = []
+    for item in raw_items:
+        language = str(item).strip()
+        if language and language not in normalized:
+            normalized.append(language)
+    return normalized

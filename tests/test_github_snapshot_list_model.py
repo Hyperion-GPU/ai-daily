@@ -64,3 +64,33 @@ def test_snapshot_model_clear_resets_selection(qapp: QApplication) -> None:
     assert model.count == 0
     assert model.selected_date() == ""
     assert model.selectedItem == {}
+
+
+def test_snapshot_model_emits_selection_and_count_signals(qapp: QApplication) -> None:
+    model = GithubSnapshotListModel()
+    count_events: list[None] = []
+    selection_events: list[None] = []
+    model.countChanged.connect(lambda: count_events.append(None))
+    model.selectionChanged.connect(lambda: selection_events.append(None))
+
+    model.replace_items(
+        [
+            {"date": "2026-04-15", "label": "2026-04-15", "isLatest": True},
+            {"date": "2026-04-14", "label": "2026-04-14", "isLatest": False},
+        ]
+    )
+    model.set_selected_date("2026-04-15")
+    model.set_selected_date("2026-04-15")
+    model.set_selected_date("missing")
+    model.set_selected_date("")
+    model.replace_items(
+        [
+            {"date": "2026-04-15", "label": "2026-04-15", "isLatest": True},
+            {"date": "2026-04-14", "label": "2026-04-14", "isLatest": False},
+        ]
+    )
+    model.clear()
+    model.clear()
+
+    assert len(count_events) == 2
+    assert len(selection_events) == 5

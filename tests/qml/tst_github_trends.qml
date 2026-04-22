@@ -69,8 +69,9 @@ TestCase {
         compare(desktopGithubFacade.projectModel.count, 1)
 
         desktopGithubFacade.clearFilters()
-        compare(desktopGithubFacade.stale, false)
-        compare(desktopGithubFacade.projectModel.count, 2)
+        compare(desktopGithubFacade.stale, true)
+        tryCompare(desktopGithubFacade, "stale", false, 1000)
+        tryCompare(desktopGithubFacade.projectModel, "count", 2, 1000)
         verify(findChild(shell, "githubApplyFiltersButton") !== null)
         verify(findChild(shell, "githubClearFiltersButton") !== null)
 

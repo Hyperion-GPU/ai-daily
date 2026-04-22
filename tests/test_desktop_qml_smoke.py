@@ -15,7 +15,18 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import QFile, QIODevice, QObject
 from PySide6.QtQuickControls2 import QQuickStyle
 
-from src.desktop.qml_app import DEFAULT_QUICK_STYLE, QML_MAIN_URL, RESOURCE_BUNDLE_PATH, create_qml_runtime
+from src.desktop import qml_app as qml_app_module
+from src.desktop.qml_app import (
+    DEFAULT_QUICK_STYLE,
+    DesktopBootstrapResult,
+    QML_MAIN_URL,
+    RESOURCE_BUNDLE_PATH,
+    bootstrap_desktop_config,
+    bootstrap_qml_runtime,
+    create_desktop_services,
+    create_qml_runtime,
+    get_last_desktop_bootstrap_result,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 QRC_PATH = REPO_ROOT / "src" / "desktop" / "resources.qrc"
@@ -236,6 +247,7 @@ class FakeServices:
 
 
 def _read_resource_text(path: str) -> str:
+    bootstrap_qml_runtime()
     handle = QFile(path)
     assert handle.open(QIODevice.ReadOnly), f"unable to open resource: {path}"
     try:
@@ -255,6 +267,76 @@ def test_qrc_registers_main_qml_and_controls_conf() -> None:
 
     assert "ApplicationWindow" in main_qml
     assert "Style=Basic" in controls_conf
+
+
+def test_qml_resource_registration_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(qml_app_module, "_RESOURCE_BUNDLE_REGISTERED", False)
+    monkeypatch.setattr(qml_app_module.QResource, "registerResource", lambda path: calls.append(path) or True)
+
+    assert bootstrap_qml_runtime() == RESOURCE_BUNDLE_PATH
+
+    assert calls == [str(RESOURCE_BUNDLE_PATH)]
+
+
+def test_desktop_bootstrap_config_runs_sync_with_diagnostics() -> None:
+    config = {"mode": "desktop"}
+    calls: list[dict] = []
+
+    def fake_load_config(*, mode: str) -> dict:
+        assert mode == "desktop"
+        return config
+
+    def fake_sync(*, config: dict) -> None:
+        calls.append(config)
+
+    result = bootstrap_desktop_config(load_config_fn=fake_load_config, sync_fn=fake_sync)
+
+    assert result == DesktopBootstrapResult(
+        config=config,
+        web_data_sync_enabled=True,
+        web_data_sync_succeeded=True,
+    )
+    assert calls == [config]
+
+
+def test_desktop_bootstrap_config_can_skip_sync() -> None:
+    config = {"mode": "desktop"}
+
+    result = bootstrap_desktop_config(
+        sync_web_data=False,
+        load_config_fn=lambda *, mode: config,
+        sync_fn=lambda *, config: (_ for _ in ()).throw(AssertionError("sync should not run")),
+    )
+
+    assert result == DesktopBootstrapResult(
+        config=config,
+        web_data_sync_enabled=False,
+        web_data_sync_succeeded=None,
+    )
+
+
+def test_desktop_bootstrap_config_wraps_sync_errors() -> None:
+    def failing_sync(*, config: dict) -> None:
+        _ = config
+        raise RuntimeError("sync failed")
+
+    with pytest.raises(RuntimeError, match="Desktop bootstrap failed during web data sync: sync failed"):
+        bootstrap_desktop_config(load_config_fn=lambda *, mode: {}, sync_fn=failing_sync)
+
+
+def test_create_desktop_services_records_bootstrap_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    result = DesktopBootstrapResult(
+        config={"timezone": "Asia/Shanghai"},
+        web_data_sync_enabled=False,
+        web_data_sync_succeeded=None,
+    )
+    monkeypatch.setattr(qml_app_module, "bootstrap_desktop_config", lambda *, sync_web_data=True: result)
+
+    services = create_desktop_services(sync_web_data=False)
+
+    assert services.config == result.config
+    assert get_last_desktop_bootstrap_result() == result
 
 
 def test_qml_runtime_loads_root_window() -> None:
