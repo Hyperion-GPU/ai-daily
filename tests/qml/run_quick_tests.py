@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import os
 import sys
@@ -303,6 +304,7 @@ class FakeServices:
     async def run_pipeline_async(self, progress_callback=None) -> dict:
         if progress_callback is not None:
             progress_callback({"stage": "fetching", "message": "Fetching feeds"})
+            await asyncio.sleep(0.3)
         if self._post_fetch_digest_date not in self.digest_dates:
             self.digest_dates = [self._post_fetch_digest_date, *self.digest_dates]
             self.digest_articles[self._post_fetch_digest_date] = copy.deepcopy(self._post_fetch_digest_articles)
@@ -383,6 +385,7 @@ class FakeServices:
     async def run_github_fetch_async(self, progress_callback=None) -> dict:
         if progress_callback is not None:
             progress_callback({"stage": "searching", "message": "Searching topic: llm"})
+            await asyncio.sleep(0.3)
         return copy.deepcopy(self.github_fetch_result)
 
 

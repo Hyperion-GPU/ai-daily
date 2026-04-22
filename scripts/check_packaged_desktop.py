@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_EXE = REPO_ROOT / "dist" / "AI Daily" / "AI Daily.exe"
+DEFAULT_EXE = REPO_ROOT / "dist" / "AI Daily.exe"
 DESKTOP_DATA_DIRNAME = "AI Daily"
 REMOVED_ERROR_TOKENS = (
     "RemovedDesktopUiModeError",
@@ -26,6 +26,19 @@ def _ensure_clean_dir(path: Path) -> None:
 
 def _terminate_process(proc: subprocess.Popen[str] | subprocess.Popen[bytes]) -> None:
     if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
         return
     proc.terminate()
     try:

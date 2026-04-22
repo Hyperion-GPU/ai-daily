@@ -148,6 +148,8 @@ Item {
             Layout.fillWidth: true
             tokens: root.tokens
             busy: digestFacade ? digestFacade.busy : false
+            progressValue: digestFacade ? digestFacade.pipelineProgressValue : -1
+            progressBarObjectName: "aiDailyProgressBar"
             tone: digestFacade && digestFacade.errorMessage.length > 0 ? "error" : "neutral"
             text: root.statusText()
         }
@@ -476,10 +478,13 @@ Item {
                         objectName: "aiDailyDetailPanel"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        contentWidth: availableWidth
+                        contentHeight: detailColumn.y + detailColumn.implicitHeight + 30
                         clip: true
 
                         ColumnLayout {
                             id: detailColumn
+                            objectName: "aiDailyDetailColumn"
                             width: Math.max(Math.min(aiDetailScroll.availableWidth - 64, 680), 280)
                             x: Math.max((aiDetailScroll.availableWidth - width) / 2, 32)
                             y: 30

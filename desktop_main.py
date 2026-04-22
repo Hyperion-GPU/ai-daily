@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import importlib
 import os
+import sys
 from collections.abc import Callable
 
 
@@ -83,5 +84,13 @@ def main() -> int:
     return int(launcher())
 
 
+def _run_as_script() -> int:
+    try:
+        return main()
+    except RemovedDesktopUiModeError as exc:
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_run_as_script())

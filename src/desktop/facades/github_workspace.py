@@ -19,6 +19,16 @@ _SORT_LABELS = {
     "updated": "最近更新",
 }
 
+_FETCH_PROGRESS_STAGE_PERCENT = {
+    "starting": 5,
+    "searching": 15,
+    "deduplicating": 68,
+    "computing_trends": 80,
+    "saving": 92,
+    "completed": 100,
+    "error": 100,
+}
+
 
 class GithubWorkspaceFacade(QObject):
     currentDateChanged = Signal()
@@ -39,6 +49,7 @@ class GithubWorkspaceFacade(QObject):
     summaryTextChanged = Signal()
     lastFetchOutcomeChanged = Signal()
     statusToneChanged = Signal()
+    fetchProgressValueChanged = Signal()
     availableLanguagesChanged = Signal()
 
     def __init__(self, services_getter, parent=None) -> None:
@@ -68,6 +79,7 @@ class GithubWorkspaceFacade(QObject):
         self._summary_text = ""
         self._last_fetch_outcome = ""
         self._status_tone = "neutral"
+        self._fetch_progress_value = 0
         self._available_languages: list[dict[str, Any]] = []
 
     def _services(self) -> ApplicationServices:
@@ -165,6 +177,13 @@ class GithubWorkspaceFacade(QObject):
             return
         self._status_tone = value
         self.statusToneChanged.emit()
+
+    def _set_fetch_progress_value(self, value: int) -> None:
+        value = max(0, min(100, int(value)))
+        if value == self._fetch_progress_value:
+            return
+        self._fetch_progress_value = value
+        self.fetchProgressValueChanged.emit()
 
     def _refresh_status_tone(self) -> None:
         if self._error_message:
@@ -309,6 +328,9 @@ class GithubWorkspaceFacade(QObject):
 
     def get_status_tone(self) -> str:
         return self._status_tone
+
+    def get_fetch_progress_value(self) -> int:
+        return self._fetch_progress_value
 
     def get_available_languages(self) -> list[dict[str, Any]]:
         return list(self._available_languages)
@@ -477,6 +499,7 @@ class GithubWorkspaceFacade(QObject):
         self._set_last_fetch_outcome("")
         self._set_error_message("")
         self._set_notice_message("正在抓取 GitHub 趋势快照...")
+        self._set_fetch_progress_value(5)
         self._task_thread = AsyncTaskThread(
             lambda emit: self._gateway.run_fetch(progress_callback=emit),
             self,
@@ -500,6 +523,13 @@ class GithubWorkspaceFacade(QObject):
     def _handle_fetch_progress(self, payload: dict[str, Any]) -> None:
         stage = str(payload.get("stage", "") or "running")
         message = str(payload.get("message", "") or "GitHub 趋势抓取中")
+        current = payload.get("current")
+        total = payload.get("total")
+        if stage == "searching" and isinstance(current, int) and isinstance(total, int) and total > 0:
+            percent = 15 + round((current / total) * 45)
+        else:
+            percent = _FETCH_PROGRESS_STAGE_PERCENT.get(stage, self._fetch_progress_value)
+        self._set_fetch_progress_value(percent)
         self._set_notice_message(f"{stage}: {message}")
 
     def _has_official_snapshots(self) -> bool:
@@ -515,11 +545,13 @@ class GithubWorkspaceFacade(QObject):
         if str(payload.get("outcome", "") or "success") == "degraded":
             self._set_last_fetch_outcome("degraded")
             self._set_error_message("")
+            self._set_fetch_progress_value(100)
             self._set_notice_message(self._degraded_notice_message())
             return
 
         snapshot = payload.get("snapshot")
         self._set_last_fetch_outcome("success")
+        self._set_fetch_progress_value(100)
         self._set_notice_message("GitHub 趋势快照已刷新。")
         self.reloadDates()
         latest_date = ""
@@ -534,6 +566,7 @@ class GithubWorkspaceFacade(QObject):
 
     def _handle_fetch_failure(self, message: str) -> None:
         self._set_last_fetch_outcome("error")
+        self._set_fetch_progress_value(100)
         self._set_error_message(message)
         self._set_notice_message("")
 
@@ -564,6 +597,7 @@ class GithubWorkspaceFacade(QObject):
     summaryText = Property(str, get_summary_text, notify=summaryTextChanged)
     lastFetchOutcome = Property(str, get_last_fetch_outcome, notify=lastFetchOutcomeChanged)
     statusTone = Property(str, get_status_tone, notify=statusToneChanged)
+    fetchProgressValue = Property(int, get_fetch_progress_value, notify=fetchProgressValueChanged)
     availableLanguages = Property(
         "QVariantList",
         get_available_languages,

@@ -68,6 +68,17 @@ def test_main_raises_when_removed_widgets_mode_is_requested(monkeypatch) -> None
         desktop_main.main()
 
 
+def test_run_as_script_returns_error_for_removed_widgets_mode(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("AI_DAILY_DESKTOP_UI", "widgets")
+    monkeypatch.setattr(desktop_main, "_set_windows_app_id", lambda: None)
+
+    assert desktop_main._run_as_script() == 2
+
+    captured = capsys.readouterr()
+    assert "RemovedDesktopUiModeError" in captured.err
+    assert "no longer supported" in captured.err
+
+
 def test_resolve_launcher_raises_when_qml_requested_but_unavailable(monkeypatch) -> None:
     monkeypatch.setenv("AI_DAILY_DESKTOP_UI", "qml")
 

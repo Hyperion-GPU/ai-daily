@@ -106,8 +106,13 @@ TestCase {
         compare(desktopGithubFacade.projectModel.count, 2)
         desktopTestSetup.configureGithubFetchResult("degraded", "rate_limit")
 
+        const progressBar = findChild(shell, "githubProgressBar")
+        verify(progressBar !== null)
+
         desktopGithubFacade.runFetch()
+        verify(desktopGithubFacade.fetchProgressValue > 0)
         tryCompare(desktopGithubFacade, "lastFetchOutcome", "degraded", 3000)
+        compare(desktopGithubFacade.fetchProgressValue, 100)
         tryCompare(
             desktopGithubFacade,
             "noticeMessage",

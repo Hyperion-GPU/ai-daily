@@ -320,7 +320,15 @@ def test_github_workspace_run_fetch_updates_busy_and_notice(
 
     assert facade.busy is True
     assert facade.noticeMessage == "正在抓取 GitHub 趋势快照..."
+    assert facade.fetchProgressValue == 5
     assert ControlledTaskThread.last_instance is not None
+
+    ControlledTaskThread.last_instance.progress.emit(
+        {"stage": "searching", "message": "Searching topic: llm", "current": 1, "total": 4}
+    )
+    qapp.processEvents()
+
+    assert facade.fetchProgressValue == 26
 
     ControlledTaskThread.last_instance.complete_success()
     qapp.processEvents()
@@ -329,6 +337,7 @@ def test_github_workspace_run_fetch_updates_busy_and_notice(
     assert facade.lastFetchOutcome == "success"
     assert facade.statusTone == "neutral"
     assert facade.noticeMessage == SUCCESS_NOTICE
+    assert facade.fetchProgressValue == 100
     assert facade.currentDate == "2026-04-15"
 
 
@@ -350,6 +359,7 @@ def test_github_workspace_run_fetch_degraded_keeps_current_snapshot(
     assert facade.busy is False
     assert facade.lastFetchOutcome == "degraded"
     assert facade.statusTone == "warning"
+    assert facade.fetchProgressValue == 100
     assert facade.errorMessage == ""
     assert facade.noticeMessage == DEGRADED_NOTICE_WITH_SNAPSHOT
     assert facade.currentDate == "2026-04-14"
@@ -375,6 +385,7 @@ def test_github_workspace_run_fetch_degraded_without_official_snapshot(
     assert facade.busy is False
     assert facade.lastFetchOutcome == "degraded"
     assert facade.statusTone == "warning"
+    assert facade.fetchProgressValue == 100
     assert facade.noticeMessage == DEGRADED_NOTICE_WITHOUT_SNAPSHOT
     assert facade.currentDate == ""
     assert facade.projectModel.count == 0
@@ -400,4 +411,5 @@ def test_github_workspace_run_fetch_failure_surfaces_error(
     assert facade.busy is False
     assert facade.lastFetchOutcome == "error"
     assert facade.statusTone == "error"
+    assert facade.fetchProgressValue == 100
     assert facade.errorMessage == "github failed"
