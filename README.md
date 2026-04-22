@@ -68,6 +68,7 @@ The desktop mainline check and the packaged-app closeout are two separate steps:
 
 ```powershell
 .venv\Scripts\pyinstaller.exe -y "build\windows\AI Daily.spec"
+build\windows\build-fast-launcher.ps1
 .venv\Scripts\python.exe -m pytest tests\test_desktop_packaging_smoke.py -q
 .venv\Scripts\python.exe scripts\check_packaged_desktop.py --mode default-qml --localappdata-root ".\localappdata\aid-closeout-default"
 .venv\Scripts\python.exe scripts\check_packaged_desktop.py --mode widgets-removed --localappdata-root ".\localappdata\aid-closeout-widgets"
@@ -96,7 +97,14 @@ into the desktop data directory when those files are missing or older.
 ```powershell
 .venv\Scripts\pip install -r requirements-build.txt
 .venv\Scripts\pyinstaller.exe build\windows\AI Daily.spec
+build\windows\build-fast-launcher.ps1
 ```
+
+The default packaged entry is `dist\AI Daily.exe`. It is a small launcher that starts
+the faster onedir runtime in `dist\AI Daily\`. Keep both the launcher and the
+`dist\AI Daily\` folder together. If you need a portable single-file build, use
+`build\windows\AI Daily Onefile.spec`, but startup is slower because PyInstaller
+extracts the bundled Qt/PySide payload at launch.
 
 ## Configuration
 

@@ -34,6 +34,8 @@ jobs:
           python -m pytest tests/test_runtime_settings.py tests/test_settings_facade.py tests/test_desktop_entry.py tests/test_desktop_packaging_smoke.py tests/test_desktop_qml_smoke.py tests/test_desktop_qml_quick.py -q
       - name: Build packaged desktop
         run: pyinstaller -y "build/windows/AI Daily.spec"
+      - name: Build fast packaged desktop launcher
+        run: ./build/windows/build-fast-launcher.ps1
       - name: Verify packaged desktop payload
         run: python -m pytest tests/test_desktop_packaging_smoke.py -q
       - name: Verify packaged desktop default QML startup
