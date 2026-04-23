@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from threading import RLock
 from typing import Any
 
 from PySide6.QtCore import QObject, Property, QTimer, QUrl, Signal, Slot
@@ -29,6 +30,7 @@ _FETCH_PROGRESS_STAGE_PERCENT = {
     "error": 100,
 }
 _FILTER_RELOAD_DEBOUNCE_MS = 120
+SnapshotTaskThread = AsyncTaskThread
 
 
 class GithubWorkspaceFacade(QObject):
@@ -64,10 +66,13 @@ class GithubWorkspaceFacade(QObject):
         self._project_model.selectionChanged.connect(self.hasSelectionChanged)
         self._task_thread: AsyncTaskThread | None = None
         self._task_threads: dict[int, AsyncTaskThread] = {}
+        self._snapshot_threads: dict[int, SnapshotTaskThread] = {}
         self._task_request_id = 0
         self._snapshot_request_id = 0
         self._pending_filter_request_id = 0
         self._base_snapshot_cache: dict[str, dict[str, Any] | None] = {}
+        self._base_snapshot_cache_lock = RLock()
+        self._base_snapshot_cache_revision = 0
         self._filter_reload_timer = QTimer(self)
         self._filter_reload_timer.setSingleShot(True)
         self._filter_reload_timer.setInterval(_FILTER_RELOAD_DEBOUNCE_MS)
@@ -114,9 +119,6 @@ class GithubWorkspaceFacade(QObject):
             "searchQuery": "",
             "trendFilter": "",
         }
-
-    def _filters_are_base(self) -> bool:
-        return self._filters_payload() == self._base_filters()
 
     def _set_busy(self, value: bool) -> None:
         value = bool(value)
@@ -251,12 +253,28 @@ class GithubWorkspaceFacade(QObject):
         self._set_available_languages(items)
 
     def _load_base_snapshot(self, date_value: str) -> dict[str, Any] | None:
-        if date_value not in self._base_snapshot_cache:
-            self._base_snapshot_cache[date_value] = self._gateway.load_snapshot(date_value, self._base_filters())
-        return self._base_snapshot_cache[date_value]
+        with self._base_snapshot_cache_lock:
+            if date_value in self._base_snapshot_cache:
+                return self._base_snapshot_cache[date_value]
+            revision = self._base_snapshot_cache_revision
+        snapshot = self._gateway.load_snapshot(date_value, self._base_filters())
+        with self._base_snapshot_cache_lock:
+            if revision == self._base_snapshot_cache_revision:
+                self._base_snapshot_cache[date_value] = snapshot
+                return self._base_snapshot_cache[date_value]
+        return snapshot
 
     def _invalidate_base_snapshot_cache(self) -> None:
-        self._base_snapshot_cache.clear()
+        with self._base_snapshot_cache_lock:
+            self._base_snapshot_cache.clear()
+            self._base_snapshot_cache_revision += 1
+
+    def _prune_base_snapshot_cache(self, available_dates: set[str]) -> None:
+        with self._base_snapshot_cache_lock:
+            for cached_date in list(self._base_snapshot_cache):
+                if cached_date not in available_dates:
+                    self._base_snapshot_cache.pop(cached_date, None)
+            self._base_snapshot_cache_revision += 1
 
     def _next_snapshot_request_id(self) -> int:
         self._snapshot_request_id += 1
@@ -308,9 +326,62 @@ class GithubWorkspaceFacade(QObject):
     def _load_project_snapshot(self, date_value: str, *, request_id: int) -> None:
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
+        filters = self._filters_payload()
+        task_thread = SnapshotTaskThread(
+            lambda _emit, date_value=date_value, filters=filters: self._load_project_snapshot_async(
+                date_value,
+                filters,
+            ),
+            None,
+        )
+        self._snapshot_threads[request_id] = task_thread
+        task_thread.succeeded.connect(
+            lambda result, request_id=request_id, date_value=date_value: self._handle_snapshot_success(
+                request_id,
+                date_value,
+                result,
+            )
+        )
+        task_thread.failed.connect(
+            lambda failure, request_id=request_id, date_value=date_value: self._handle_snapshot_failure(
+                request_id,
+                date_value,
+                failure,
+            )
+        )
+        task_thread.finished.connect(
+            lambda request_id=request_id, task_thread=task_thread: self._clear_snapshot_task(
+                request_id,
+                task_thread,
+            )
+        )
+        task_thread.start()
+
+    async def _load_project_snapshot_async(
+        self,
+        date_value: str,
+        filters: dict[str, Any],
+    ) -> dict[str, Any]:
         raw_snapshot = self._load_base_snapshot(date_value)
+        filtered_snapshot = (
+            raw_snapshot
+            if filters == self._base_filters()
+            else self._gateway.load_snapshot(date_value, filters)
+        )
+        return {
+            "rawSnapshot": raw_snapshot,
+            "filteredSnapshot": filtered_snapshot,
+        }
+
+    def _clear_snapshot_task(self, request_id: int, task_thread: SnapshotTaskThread) -> None:
+        self._snapshot_threads.pop(request_id, None)
+        task_thread.deleteLater()
+
+    def _handle_snapshot_success(self, request_id: int, date_value: str, result: object) -> None:
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
+        payload = dict(result or {})
+        raw_snapshot = payload.get("rawSnapshot")
         if raw_snapshot is not None:
             self._snapshot_model.update_item_metadata(
                 date_value,
@@ -320,15 +391,16 @@ class GithubWorkspaceFacade(QObject):
             self._update_available_languages(raw_snapshot)
         else:
             self._update_available_languages(None)
+        self._apply_project_snapshot(payload.get("filteredSnapshot"))
+        self._set_stale(False)
 
-        if self._filters_are_base():
-            filtered_snapshot = raw_snapshot
-        else:
-            filtered_snapshot = self._gateway.load_snapshot(date_value, self._filters_payload())
+    def _handle_snapshot_failure(self, request_id: int, date_value: str, failure: object) -> None:
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
-        self._apply_project_snapshot(filtered_snapshot)
-        self._set_stale(False)
+        payload = normalize_failure_payload(failure)
+        self._set_error_message(str(payload.get("message", "") or "蹇収鍔犺浇澶辫触"))
+        self._set_status_tone("error")
+        self._set_stale(True)
 
     def get_current_date(self) -> str:
         return self._current_date
@@ -421,9 +493,7 @@ class GithubWorkspaceFacade(QObject):
         payload = self._gateway.list_dates()
         items = list(payload.get("dates", []))
         available_dates = {str(item.get("date", "") or "") for item in items}
-        for cached_date in list(self._base_snapshot_cache):
-            if cached_date not in available_dates:
-                self._base_snapshot_cache.pop(cached_date, None)
+        self._prune_base_snapshot_cache(available_dates)
         latest = str(payload.get("latest", "") or "")
         desired_date = latest if select_latest else (self._current_date if self._current_date else latest)
         if desired_date and not any(item.get("date") == desired_date for item in items):

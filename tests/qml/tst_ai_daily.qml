@@ -37,7 +37,7 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("ai-daily")
-        wait(50)
+        tryCompare(desktopDigestFacade.articleModel, "count", 2, 3000)
 
         verify(findChild(shell, "aiDailyWorkspace") !== null)
         verify(findChild(shell, "aiDailyArchiveList") !== null)
@@ -54,19 +54,19 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("ai-daily")
-        wait(50)
+        tryCompare(desktopDigestFacade.articleModel, "count", 2, 3000)
 
         desktopDigestFacade.setCategoryFilter("official")
-        tryCompare(desktopDigestFacade, "filteredArticleCount", 1, 1000)
+        tryCompare(desktopDigestFacade, "filteredArticleCount", 1, 3000)
 
         desktopDigestFacade.toggleTagSelection("OpenAI")
         compare(desktopDigestFacade.selectedTags.length, 1)
-        tryCompare(desktopDigestFacade.articleModel, "count", 1, 1000)
+        tryCompare(desktopDigestFacade.articleModel, "count", 1, 3000)
 
         desktopDigestFacade.clearFilters()
         compare(desktopDigestFacade.selectedTags.length, 0)
         compare(desktopDigestFacade.categoryFilter, "")
-        tryCompare(desktopDigestFacade.articleModel, "count", 2, 1000)
+        tryCompare(desktopDigestFacade.articleModel, "count", 2, 3000)
 
         shell.destroy()
     }
@@ -76,7 +76,7 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("ai-daily")
-        wait(50)
+        tryCompare(desktopDigestFacade, "selectedArticleId", "digest-1", 3000)
 
         compare(desktopDigestFacade.selectedArticle.title, "OpenAI updates desktop workflow")
         desktopDigestFacade.selectArticleRow(1)
@@ -94,6 +94,7 @@ TestCase {
 
         shell.height = 620
         appShellFacade.selectWorkspace("ai-daily")
+        tryCompare(desktopDigestFacade.articleModel, "count", 2, 3000)
         wait(50)
 
         const detailPanel = findChild(shell, "aiDailyDetailPanel")
@@ -121,7 +122,7 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("ai-daily")
-        wait(50)
+        tryCompare(desktopDigestFacade.articleModel, "count", 2, 3000)
 
         desktopDigestFacade.selectDate("2026-04-14")
         compare(desktopDigestFacade.currentDate, "2026-04-14")
@@ -133,6 +134,7 @@ TestCase {
         verify(desktopDigestFacade.pipelineProgressValue > 0)
         tryCompare(desktopDigestFacade, "lastFetchOutcome", "success", 3000)
         tryCompare(desktopDigestFacade, "currentDate", "2026-04-16", 3000)
+        tryCompare(desktopDigestFacade, "selectedArticleId", "digest-4", 3000)
         compare(desktopDigestFacade.pipelineProgressValue, 100)
         compare(desktopDigestFacade.selectedArticle.title, "Fresh digest after fetch")
 

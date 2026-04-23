@@ -4,7 +4,7 @@ from typing import Any
 
 from PySide6.QtCore import Qt, Slot
 
-from . import _SelectableListModel
+from ._selectable_list_model import _SelectableListModel
 
 
 class GithubSnapshotListModel(_SelectableListModel):

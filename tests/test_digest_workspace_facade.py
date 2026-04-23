@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import time
 
 import pytest
 
@@ -224,6 +225,21 @@ def fake_services() -> FakeServices:
     return FakeServices()
 
 
+def _wait_until(qapp: QApplication, condition, *, timeout_ms: int = 1500) -> None:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        qapp.processEvents()
+        if condition():
+            return
+        QTest.qWait(10)
+    qapp.processEvents()
+    assert condition()
+
+
+def _wait_for_article(facade: DigestWorkspaceFacade, qapp: QApplication, article_id: str) -> None:
+    _wait_until(qapp, lambda: facade.selectedArticleId == article_id and facade._snapshot_threads == {})
+
+
 def test_digest_workspace_reload_selects_latest_and_reuses_base_snapshot(
     fake_services: FakeServices,
     qapp: QApplication,
@@ -231,7 +247,7 @@ def test_digest_workspace_reload_selects_latest_and_reuses_base_snapshot(
     facade = DigestWorkspaceFacade(lambda: fake_services)
 
     facade.reload()
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "alpha")
 
     assert facade.currentDate == "2026-04-15"
     assert facade.archiveModel.count == 2
@@ -255,13 +271,79 @@ def test_digest_workspace_reload_selects_latest_and_reuses_base_snapshot(
     ]
 
 
+def test_digest_workspace_snapshot_load_runs_outside_ui_call_path(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(digest_workspace_module, "SnapshotTaskThread", ControlledTaskThread)
+    ControlledTaskThread.instances.clear()
+    facade = DigestWorkspaceFacade(lambda: fake_services)
+
+    facade.reload()
+    qapp.processEvents()
+
+    assert facade.currentDate == "2026-04-15"
+    assert facade.selectedArticleId == ""
+    assert fake_services.digest_calls == []
+    assert ControlledTaskThread.instances
+
+    ControlledTaskThread.instances[-1].complete_success()
+    qapp.processEvents()
+
+    assert facade.selectedArticleId == "alpha"
+    assert fake_services.digest_calls == [
+        (
+            "2026-04-15",
+            {
+                "tags": [],
+                "category": None,
+                "min_importance": 1,
+                "sort": "importance",
+                "q": None,
+            },
+        )
+    ]
+
+
+def test_digest_workspace_discards_stale_snapshot_result(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(digest_workspace_module, "SnapshotTaskThread", ControlledTaskThread)
+    ControlledTaskThread.instances.clear()
+    facade = DigestWorkspaceFacade(lambda: fake_services)
+
+    facade.reload()
+    first_task = ControlledTaskThread.instances[-1]
+    facade.selectDate("2026-04-14")
+    second_task = ControlledTaskThread.instances[-1]
+
+    assert first_task is not second_task
+    assert facade.currentDate == "2026-04-14"
+
+    second_task.complete_success()
+    qapp.processEvents()
+
+    assert facade.selectedArticleId == "gamma"
+    assert len(facade._snapshot_threads) == 1
+
+    first_task.complete_success()
+    qapp.processEvents()
+
+    assert facade.currentDate == "2026-04-14"
+    assert facade.selectedArticleId == "gamma"
+    assert facade._snapshot_threads == {}
+
+
 def test_digest_workspace_prunes_selected_tags_before_available_tags_signal(
     fake_services: FakeServices,
     qapp: QApplication,
 ) -> None:
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "alpha")
 
     facade.toggleTagSelection("agents")
     qapp.processEvents()
@@ -291,7 +373,7 @@ def test_digest_workspace_prunes_selected_tags_before_available_tags_signal(
     facade.availableTagsChanged.connect(record_available_tags)
 
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "gamma")
 
     assert facade.selectedTags == []
     assert [item["value"] for item in facade.availableTags] == ["llm"]
@@ -319,6 +401,7 @@ def test_digest_workspace_filter_changes_are_debounced_and_reuse_base_snapshot(
 ) -> None:
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
+    _wait_for_article(facade, qapp, "alpha")
     facade.selectArticleRow(0)
     qapp.processEvents()
 
@@ -333,7 +416,7 @@ def test_digest_workspace_filter_changes_are_debounced_and_reuse_base_snapshot(
     assert len(fake_services.digest_calls) == initial_calls
 
     QTest.qWait(DEBOUNCE_WAIT_MS)
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "beta")
 
     assert len(fake_services.digest_calls) == initial_calls + 1
     assert facade.stale is False
@@ -359,7 +442,7 @@ def test_digest_workspace_debounce_keeps_latest_filter_only(
 ) -> None:
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "alpha")
 
     initial_calls = len(fake_services.digest_calls)
     facade.setSearchQuery("a")
@@ -371,7 +454,12 @@ def test_digest_workspace_debounce_keeps_latest_filter_only(
     assert len(fake_services.digest_calls) == initial_calls
 
     QTest.qWait(DEBOUNCE_WAIT_MS)
-    qapp.processEvents()
+    _wait_until(
+        qapp,
+        lambda: facade.filteredArticleCount == 1
+        and len(fake_services.digest_calls) == initial_calls + 1
+        and facade._snapshot_threads == {},
+    )
 
     assert len(fake_services.digest_calls) == initial_calls + 1
     assert facade.filteredArticleCount == 1
@@ -395,14 +483,14 @@ def test_digest_workspace_pending_filter_reload_does_not_outlive_newer_date_sele
 ) -> None:
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "alpha")
 
     facade.setSearchQuery("gamma")
     qapp.processEvents()
     assert len(fake_services.digest_calls) == 1
 
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "gamma")
     calls_after_select = len(fake_services.digest_calls)
 
     QTest.qWait(DEBOUNCE_WAIT_MS)
@@ -464,7 +552,7 @@ def test_digest_workspace_run_fetch_success_selects_latest_archive_and_open_acti
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "gamma")
 
     facade.runFetch()
     qapp.processEvents()
@@ -484,7 +572,7 @@ def test_digest_workspace_run_fetch_success_selects_latest_archive_and_open_acti
     assert facade.noticeMessage == "stage2: Drafted summaries"
 
     ControlledTaskThread.last_instance.complete_success()
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "delta")
 
     assert facade.busy is False
     assert facade.lastFetchOutcome == "success"
@@ -513,7 +601,7 @@ def test_digest_workspace_run_fetch_no_new_items_keeps_current_context(
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "gamma")
 
     assert facade.currentDate == "2026-04-14"
     assert facade.selectedArticleId == "gamma"
@@ -542,7 +630,7 @@ def test_digest_workspace_run_fetch_failure_surfaces_error(
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "gamma")
 
     facade.runFetch()
     qapp.processEvents()
@@ -571,7 +659,7 @@ def test_digest_workspace_discards_stale_fetch_result(
     facade = DigestWorkspaceFacade(lambda: fake_services)
     facade.reload()
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "gamma")
 
     stale_snapshot = _snapshot(
         "2026-04-16",
@@ -623,7 +711,7 @@ def test_digest_workspace_discards_stale_fetch_result(
     assert facade.pipelineProgressText == "starting: 正在抓取 RSS 与摘要..."
 
     second_task.complete_success()
-    qapp.processEvents()
+    _wait_for_article(facade, qapp, "latest")
 
     assert facade.busy is False
     assert facade.currentDate == "2026-04-17"

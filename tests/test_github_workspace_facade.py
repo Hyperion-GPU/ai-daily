@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import time
 
 import pytest
 
@@ -266,11 +267,26 @@ def fake_services() -> FakeServices:
     return FakeServices()
 
 
+def _wait_until(qapp: QApplication, condition, *, timeout_ms: int = 1500) -> None:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        qapp.processEvents()
+        if condition():
+            return
+        QTest.qWait(10)
+    qapp.processEvents()
+    assert condition()
+
+
+def _wait_for_project(facade: GithubWorkspaceFacade, qapp: QApplication, name: str) -> None:
+    _wait_until(qapp, lambda: facade.selectedProjectName == name and facade._snapshot_threads == {})
+
+
 def test_github_workspace_reload_selects_latest_snapshot(fake_services: FakeServices, qapp: QApplication) -> None:
     facade = GithubWorkspaceFacade(lambda: fake_services)
 
     facade.reload()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.currentDate == "2026-04-15"
     assert facade.snapshotModel.count == 2
@@ -281,11 +297,79 @@ def test_github_workspace_reload_selects_latest_snapshot(fake_services: FakeServ
     assert facade.availableLanguages[0]["value"] == "Python"
 
 
+def test_github_workspace_snapshot_load_runs_outside_ui_call_path(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(github_workspace_module, "SnapshotTaskThread", ControlledTaskThread)
+    ControlledTaskThread.instances.clear()
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+
+    facade.reload()
+    qapp.processEvents()
+
+    assert facade.currentDate == "2026-04-15"
+    assert facade.selectedProjectName == ""
+    assert fake_services.snapshot_calls == []
+    assert ControlledTaskThread.instances
+
+    ControlledTaskThread.instances[-1].complete_success()
+    qapp.processEvents()
+
+    assert facade.selectedProjectName == "acme/alpha"
+    assert fake_services.snapshot_calls == [
+        (
+            "2026-04-15",
+            {
+                "category": None,
+                "language": [],
+                "min_stars": 0,
+                "sort": "stars",
+                "q": None,
+                "trend": None,
+            },
+        )
+    ]
+
+
+def test_github_workspace_discards_stale_snapshot_result(
+    fake_services: FakeServices,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(github_workspace_module, "SnapshotTaskThread", ControlledTaskThread)
+    ControlledTaskThread.instances.clear()
+    facade = GithubWorkspaceFacade(lambda: fake_services)
+
+    facade.reload()
+    first_task = ControlledTaskThread.instances[-1]
+    facade.selectDate("2026-04-14")
+    second_task = ControlledTaskThread.instances[-1]
+
+    assert first_task is not second_task
+    assert facade.currentDate == "2026-04-14"
+
+    second_task.complete_success()
+    qapp.processEvents()
+
+    assert facade.selectedProjectName == "acme/gamma"
+    assert len(facade._snapshot_threads) == 1
+
+    first_task.complete_success()
+    qapp.processEvents()
+
+    assert facade.currentDate == "2026-04-14"
+    assert facade.selectedProjectName == "acme/gamma"
+    assert facade._snapshot_threads == {}
+
+
 def test_github_workspace_filter_changes_mark_stale_and_reload_clears_it(
     fake_services: FakeServices, qapp: QApplication
 ) -> None:
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     facade.setTrendFilter("rising")
     qapp.processEvents()
@@ -293,7 +377,7 @@ def test_github_workspace_filter_changes_mark_stale_and_reload_clears_it(
     assert facade.stale is True
 
     facade.reload()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.stale is False
     assert facade.projectModel.count == 1
@@ -306,7 +390,7 @@ def test_github_workspace_supports_multi_language_filter(
 ) -> None:
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
     initial_calls = len(fake_services.snapshot_calls)
 
     facade.setSelectedLanguages(["Python", "TypeScript", "Python", ""])
@@ -317,7 +401,7 @@ def test_github_workspace_supports_multi_language_filter(
     assert len(fake_services.snapshot_calls) == initial_calls
 
     QTest.qWait(DEBOUNCE_WAIT_MS)
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.stale is False
     assert facade.projectModel.count == 2
@@ -342,7 +426,7 @@ def test_github_workspace_filter_changes_debounce_to_latest_payload(
 ) -> None:
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
     initial_calls = len(fake_services.snapshot_calls)
 
     facade.setSearchQuery("alp")
@@ -356,7 +440,7 @@ def test_github_workspace_filter_changes_debounce_to_latest_payload(
     assert len(fake_services.snapshot_calls) == initial_calls
 
     QTest.qWait(DEBOUNCE_WAIT_MS)
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.stale is False
     assert facade.projectModel.count == 1
@@ -381,12 +465,12 @@ def test_github_workspace_clear_filters_uses_debounced_reload(
 ) -> None:
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     facade.setSelectedLanguages(["Python"])
     facade.setSearchQuery("alpha")
     QTest.qWait(DEBOUNCE_WAIT_MS)
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
     calls_after_filtered_reload = len(fake_services.snapshot_calls)
 
     assert facade.stale is False
@@ -403,7 +487,7 @@ def test_github_workspace_clear_filters_uses_debounced_reload(
     assert len(fake_services.snapshot_calls) == calls_after_filtered_reload
 
     QTest.qWait(DEBOUNCE_WAIT_MS)
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.stale is False
     assert facade.projectModel.count == 2
@@ -416,15 +500,17 @@ def test_github_workspace_snapshot_and_project_selection_refresh_detail(
 ) -> None:
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/gamma")
 
     assert facade.currentDate == "2026-04-14"
     assert facade.projectModel.count == 1
     assert facade.selectedProjectName == "acme/gamma"
 
     facade.selectDate("2026-04-15")
+    _wait_for_project(facade, qapp, "acme/alpha")
     facade.selectProjectRow(1)
     qapp.processEvents()
 
@@ -441,6 +527,7 @@ def test_github_workspace_run_fetch_updates_busy_and_notice(
     monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     facade.runFetch()
     qapp.processEvents()
@@ -458,7 +545,7 @@ def test_github_workspace_run_fetch_updates_busy_and_notice(
     assert facade.fetchProgressValue == 26
 
     ControlledTaskThread.last_instance.complete_success()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.busy is False
     assert facade.lastFetchOutcome == "success"
@@ -480,7 +567,9 @@ def test_github_workspace_run_fetch_degraded_keeps_current_snapshot(
     monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
+    _wait_for_project(facade, qapp, "acme/alpha")
     facade.selectDate("2026-04-14")
+    _wait_for_project(facade, qapp, "acme/gamma")
 
     facade.runFetch()
     ControlledTaskThread.last_instance.complete_success()
@@ -534,6 +623,7 @@ def test_github_workspace_run_fetch_failure_surfaces_error(
     monkeypatch.setattr(github_workspace_module, "AsyncTaskThread", ControlledTaskThread)
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     facade.runFetch()
     qapp.processEvents()
@@ -561,7 +651,7 @@ def test_github_workspace_discards_stale_fetch_result(
     facade = GithubWorkspaceFacade(lambda: fake_services)
     facade.reload()
     facade.selectDate("2026-04-14")
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/gamma")
 
     stale_snapshot = _snapshot(
         "2026-04-16",
@@ -627,7 +717,7 @@ def test_github_workspace_discards_stale_fetch_result(
     assert facade.noticeMessage == "正在抓取 GitHub 趋势快照..."
 
     second_task.complete_success()
-    qapp.processEvents()
+    _wait_for_project(facade, qapp, "acme/latest")
 
     assert facade.busy is False
     assert facade.currentDate == "2026-04-17"

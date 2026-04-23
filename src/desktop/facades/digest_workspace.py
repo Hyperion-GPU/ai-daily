@@ -8,7 +8,7 @@ from PySide6.QtGui import QDesktopServices
 from ..models import DigestArchiveListModel, DigestArticleListModel
 from ..tasks import DigestCommandGateway
 from ..workers import AsyncTaskThread, normalize_failure_payload
-from .digest_workspace_support import DigestFilterState, DigestSnapshotLoader
+from .digest_workspace_support import DigestFilterState, DigestSnapshotLoad, DigestSnapshotLoader
 
 
 _SORT_LABELS = {
@@ -26,6 +26,7 @@ _PROGRESS_STAGE_PERCENT = {
     "error": 100,
 }
 _FILTER_RELOAD_DEBOUNCE_MS = 120
+SnapshotTaskThread = AsyncTaskThread
 
 
 class DigestWorkspaceFacade(QObject):
@@ -61,6 +62,7 @@ class DigestWorkspaceFacade(QObject):
         self._article_model.selectionChanged.connect(self.selectedArticleChanged)
         self._task_thread: AsyncTaskThread | None = None
         self._task_threads: dict[int, AsyncTaskThread] = {}
+        self._snapshot_threads: dict[int, SnapshotTaskThread] = {}
         self._task_request_id = 0
         self._snapshot_request_id = 0
         self._pending_filter_request_id = 0
@@ -261,22 +263,101 @@ class DigestWorkspaceFacade(QObject):
     def _load_snapshot_for_date(self, date_value: str, *, request_id: int) -> None:
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
+        filters = self._copy_filters()
+        task_thread = SnapshotTaskThread(
+            lambda _emit, date_value=date_value, filters=filters: self._load_snapshot_async(date_value, filters),
+            None,
+        )
+        self._snapshot_threads[request_id] = task_thread
+        task_thread.succeeded.connect(
+            lambda result, request_id=request_id, date_value=date_value: self._handle_snapshot_success(
+                request_id,
+                date_value,
+                result,
+            )
+        )
+        task_thread.failed.connect(
+            lambda failure, request_id=request_id, date_value=date_value: self._handle_snapshot_failure(
+                request_id,
+                date_value,
+                failure,
+            )
+        )
+        task_thread.finished.connect(
+            lambda request_id=request_id, task_thread=task_thread: self._clear_snapshot_task(
+                request_id,
+                task_thread,
+            )
+        )
+        task_thread.start()
+
+    def _copy_filters(self) -> DigestFilterState:
+        return DigestFilterState(
+            category_filter=self._filters.category_filter,
+            selected_tags=list(self._filters.selected_tags),
+            min_importance=self._filters.min_importance,
+            sort_key=self._filters.sort_key,
+            search_query=self._filters.search_query,
+        )
+
+    async def _load_snapshot_async(
+        self,
+        date_value: str,
+        filters: DigestFilterState,
+    ) -> dict[str, Any]:
         base_snapshot_load = self._snapshot_loader.load(date_value, DigestFilterState())
-        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
-            return
-        self._set_current_date_article_count(base_snapshot_load.current_article_count)
-        self._sync_available_tags_and_selection(base_snapshot_load.available_tags)
-        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
-            return
+        effective_filters = DigestFilterState(
+            category_filter=filters.category_filter,
+            selected_tags=list(filters.selected_tags),
+            min_importance=filters.min_importance,
+            sort_key=filters.sort_key,
+            search_query=filters.search_query,
+        )
+        effective_filters.sync_selected_tags_to_available(base_snapshot_load.available_tags)
         snapshot_load = (
             base_snapshot_load
-            if self._filters.is_base()
-            else self._snapshot_loader.load(date_value, self._filters)
+            if effective_filters.is_base()
+            else self._snapshot_loader.load(date_value, effective_filters)
         )
+        return self._snapshot_load_payload(
+            snapshot_load,
+            selected_tags=effective_filters.selected_tags,
+        )
+
+    @staticmethod
+    def _snapshot_load_payload(
+        snapshot_load: DigestSnapshotLoad,
+        *,
+        selected_tags: list[str],
+    ) -> dict[str, Any]:
+        return {
+            "currentArticleCount": snapshot_load.current_article_count,
+            "availableTags": list(snapshot_load.available_tags),
+            "filteredSnapshot": snapshot_load.filtered_snapshot,
+            "selectedTags": list(selected_tags),
+        }
+
+    def _clear_snapshot_task(self, request_id: int, task_thread: SnapshotTaskThread) -> None:
+        self._snapshot_threads.pop(request_id, None)
+        task_thread.deleteLater()
+
+    def _handle_snapshot_success(self, request_id: int, date_value: str, result: object) -> None:
         if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
             return
-        self._apply_article_snapshot(snapshot_load.filtered_snapshot)
+        payload = dict(result or {})
+        self._set_current_date_article_count(int(payload.get("currentArticleCount", 0) or 0))
+        self._sync_available_tags_and_selection(list(payload.get("availableTags", []) or []))
+        if "selectedTags" in payload:
+            self._filters.selected_tags = list(payload.get("selectedTags", []) or [])
+        self._apply_article_snapshot(payload.get("filteredSnapshot"))
         self._set_stale(False)
+
+    def _handle_snapshot_failure(self, request_id: int, date_value: str, failure: object) -> None:
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
+        payload = normalize_failure_payload(failure)
+        self._set_error_message(str(payload.get("message", "") or "蹇収鍔犺浇澶辫触"))
+        self._set_stale(True)
 
     def get_current_date(self) -> str:
         return self._current_date

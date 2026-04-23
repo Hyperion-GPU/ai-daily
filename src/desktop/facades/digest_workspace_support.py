@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from threading import RLock
 from typing import Any
 
 from ..tasks import DigestCommandGateway
@@ -75,14 +76,20 @@ class DigestSnapshotLoader:
     def __init__(self, gateway: DigestCommandGateway) -> None:
         self._gateway = gateway
         self._base_snapshot_cache: dict[str, dict[str, Any] | None] = {}
+        self._cache_lock = RLock()
+        self._cache_revision = 0
 
     def invalidate_cache(self) -> None:
-        self._base_snapshot_cache.clear()
+        with self._cache_lock:
+            self._base_snapshot_cache.clear()
+            self._cache_revision += 1
 
     def prune_cache(self, available_dates: set[str]) -> None:
-        for cached_date in list(self._base_snapshot_cache):
-            if cached_date not in available_dates:
-                self._base_snapshot_cache.pop(cached_date, None)
+        with self._cache_lock:
+            for cached_date in list(self._base_snapshot_cache):
+                if cached_date not in available_dates:
+                    self._base_snapshot_cache.pop(cached_date, None)
+            self._cache_revision += 1
 
     def load(self, date_value: str, filters: DigestFilterState) -> DigestSnapshotLoad:
         base_snapshot = self._load_base_snapshot(date_value)
@@ -98,12 +105,19 @@ class DigestSnapshotLoader:
         )
 
     def _load_base_snapshot(self, date_value: str) -> dict[str, Any] | None:
-        if date_value not in self._base_snapshot_cache:
-            self._base_snapshot_cache[date_value] = self._gateway.load_snapshot(
-                date_value,
-                DigestFilterState.base_payload(),
-            )
-        return self._base_snapshot_cache[date_value]
+        with self._cache_lock:
+            if date_value in self._base_snapshot_cache:
+                return self._base_snapshot_cache[date_value]
+            revision = self._cache_revision
+        snapshot = self._gateway.load_snapshot(
+            date_value,
+            DigestFilterState.base_payload(),
+        )
+        with self._cache_lock:
+            if revision == self._cache_revision:
+                self._base_snapshot_cache[date_value] = snapshot
+                return self._base_snapshot_cache[date_value]
+        return snapshot
 
 
 def available_tags_from_snapshot(snapshot: dict[str, Any] | None) -> list[dict[str, Any]]:
