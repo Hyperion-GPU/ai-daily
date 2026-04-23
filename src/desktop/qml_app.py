@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QObject, QResource, QUrl
 from PySide6.QtGui import QIcon
@@ -23,6 +25,15 @@ QML_IMPORT_ROOT = "qrc:/qt/qml"
 QML_MAIN_URL = QUrl(f"{QML_IMPORT_ROOT}/AIDaily/Desktop/Main.qml")
 RESOURCE_BUNDLE_PATH = Path(__file__).resolve().with_name("resources.rcc")
 _RESOURCE_BUNDLE_REGISTERED = False
+_LAST_DESKTOP_BOOTSTRAP_RESULT: DesktopBootstrapResult | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DesktopBootstrapResult:
+    config: dict[str, Any]
+    web_data_sync_enabled: bool
+    web_data_sync_succeeded: bool | None
+    web_data_sync_error: str = ""
 
 
 def register_qml_resources() -> Path:
@@ -38,7 +49,33 @@ def register_qml_resources() -> Path:
     return RESOURCE_BUNDLE_PATH
 
 
-register_qml_resources()
+def bootstrap_qml_runtime() -> Path:
+    return register_qml_resources()
+
+
+def bootstrap_desktop_config(
+    *,
+    sync_web_data: bool = True,
+    load_config_fn: Callable[..., dict[str, Any]] = load_config,
+    sync_fn: Callable[..., object] = sync_web_data_to_desktop,
+) -> DesktopBootstrapResult:
+    config = load_config_fn(mode="desktop")
+    if not sync_web_data:
+        return DesktopBootstrapResult(
+            config=config,
+            web_data_sync_enabled=False,
+            web_data_sync_succeeded=None,
+        )
+    try:
+        sync_fn(config=config)
+    except Exception as exc:
+        message = str(exc) or exc.__class__.__name__
+        raise RuntimeError(f"Desktop bootstrap failed during web data sync: {message}") from exc
+    return DesktopBootstrapResult(
+        config=config,
+        web_data_sync_enabled=True,
+        web_data_sync_succeeded=True,
+    )
 
 
 @dataclass(slots=True)
@@ -83,13 +120,19 @@ def configure_quick_controls() -> str:
     return style
 
 
-def create_desktop_services() -> ApplicationServices:
-    config = load_config(mode="desktop")
-    sync_web_data_to_desktop(config=config)
+def create_desktop_services(*, sync_web_data: bool = True) -> ApplicationServices:
+    global _LAST_DESKTOP_BOOTSTRAP_RESULT
+
+    bootstrap_result = bootstrap_desktop_config(sync_web_data=sync_web_data)
+    _LAST_DESKTOP_BOOTSTRAP_RESULT = bootstrap_result
     return ApplicationServices(
-        config=config,
+        config=bootstrap_result.config,
         load_config_fn=lambda: load_config(mode="desktop"),
     )
+
+
+def get_last_desktop_bootstrap_result() -> DesktopBootstrapResult | None:
+    return _LAST_DESKTOP_BOOTSTRAP_RESULT
 
 
 def _app_icon() -> QIcon:
@@ -113,6 +156,7 @@ def create_qml_runtime(
     github: GithubWorkspaceFacade | None = None,
     services: ApplicationServices | None = None,
 ) -> QmlRuntime:
+    bootstrap_qml_runtime()
     configure_quick_controls()
     app = QApplication.instance()
     if app is None:
@@ -177,15 +221,19 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "DEFAULT_QUICK_STYLE",
+    "DesktopBootstrapResult",
     "QML_IMPORT_ROOT",
     "QML_MAIN_URL",
     "QmlRuntime",
     "RESOURCE_BUNDLE_PATH",
     "ShellFacade",
     "SettingsFacade",
+    "bootstrap_desktop_config",
+    "bootstrap_qml_runtime",
     "configure_quick_controls",
     "create_desktop_services",
     "create_qml_runtime",
+    "get_last_desktop_bootstrap_result",
     "launch_qml_desktop_app",
     "main",
     "register_qml_resources",

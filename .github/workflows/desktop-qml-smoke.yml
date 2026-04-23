@@ -5,19 +5,20 @@ on:
     branches:
       - main
       - master
-      - "codex/**"
   pull_request:
 
+env:
+  QT_QPA_PLATFORM: offscreen
+  QT_FORCE_STDERR_LOGGING: "1"
+  AI_DAILY_QML_STYLE: Basic
+
 jobs:
-  test:
+  desktop-contracts:
+    name: Desktop contracts
     runs-on: windows-latest
-    env:
-      QT_QPA_PLATFORM: offscreen
-      QT_FORCE_STDERR_LOGGING: "1"
-      AI_DAILY_QML_STYLE: Basic
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install dependencies
@@ -29,9 +30,95 @@ jobs:
           python -c "import PySide6; assert PySide6.__version__ == '6.8.1.1', PySide6.__version__; print(PySide6.__version__)"
       - name: Verify generated contracts
         run: python scripts/export_contracts.py --check
-      - name: Run desktop QML mainline smoke suite
+      - name: Run non-QML desktop contract tests
         run: |
-          python -m pytest tests/test_runtime_settings.py tests/test_settings_facade.py tests/test_desktop_entry.py tests/test_desktop_packaging_smoke.py tests/test_desktop_qml_smoke.py tests/test_desktop_qml_quick.py -q
+          python -m pytest tests/test_runtime_settings.py tests/test_desktop_entry.py tests/test_desktop_packaging_smoke.py -q
+
+  desktop-qt-python:
+    name: Desktop Qt Python (${{ matrix.test_file }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_file:
+          - tests/test_desktop_workers.py
+          - tests/test_digest_archive_list_model.py
+          - tests/test_digest_article_list_model.py
+          - tests/test_github_project_list_model.py
+          - tests/test_github_snapshot_list_model.py
+          - tests/test_digest_workspace_facade.py
+          - tests/test_github_workspace_facade.py
+          - tests/test_settings_facade.py
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
+      - name: Verify pinned PySide6 version
+        run: |
+          python -c "import PySide6; assert PySide6.__version__ == '6.8.1.1', PySide6.__version__; print(PySide6.__version__)"
+      - name: Run isolated Qt Python test module
+        run: python -m pytest "${{ matrix.test_file }}" -q
+
+  desktop-qml-smoke:
+    name: Desktop QML smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
+      - name: Verify pinned PySide6 version
+        run: |
+          python -c "import PySide6; assert PySide6.__version__ == '6.8.1.1', PySide6.__version__; print(PySide6.__version__)"
+      - name: Run QML smoke pytest module
+        run: python -m pytest tests/test_desktop_qml_smoke.py -q
+
+  desktop-qml-quick:
+    name: Desktop QML Quick
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
+      - name: Verify pinned PySide6 version
+        run: |
+          python -c "import PySide6; assert PySide6.__version__ == '6.8.1.1', PySide6.__version__; print(PySide6.__version__)"
+      - name: Run Qt QuickTest runner in its own Python process
+        run: python tests/qml/run_quick_tests.py
+      - name: Run QML Quick pytest wrapper
+        run: python -m pytest tests/test_desktop_qml_quick.py -q
+
+  desktop-package:
+    name: Desktop package
+    runs-on: windows-latest
+    needs:
+      - desktop-contracts
+      - desktop-qt-python
+      - desktop-qml-smoke
+      - desktop-qml-quick
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-desktop.txt -r requirements-dev.txt -r requirements-build.txt
       - name: Build packaged desktop
         run: pyinstaller -y "build/windows/AI Daily.spec"
       - name: Build fast packaged desktop launcher

@@ -84,3 +84,23 @@ def test_article_model_clear_resets_selection(qapp: QApplication) -> None:
     assert model.count == 0
     assert model.selected_id() == ""
     assert model.selectedItem == {}
+
+
+def test_article_model_emits_selection_and_count_signals(qapp: QApplication) -> None:
+    model = DigestArticleListModel()
+    count_events: list[None] = []
+    selection_events: list[None] = []
+    model.countChanged.connect(lambda: count_events.append(None))
+    model.selectionChanged.connect(lambda: selection_events.append(None))
+
+    model.replace_items(_articles())
+    model.set_selected_id("paper-1")
+    model.set_selected_id("paper-1")
+    model.set_selected_id("missing")
+    model.set_selected_id("")
+    model.replace_items(_articles())
+    model.clear()
+    model.clear()
+
+    assert len(count_events) == 2
+    assert len(selection_events) == 5

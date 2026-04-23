@@ -189,6 +189,90 @@ def test_settings_facade_switches_provider_to_target_defaults(
     assert facade.model == "deepseek-chat"
 
 
+def test_settings_facade_exposes_available_provider_registry(
+    fake_services: FakeServices,
+    qapp: QApplication,
+) -> None:
+    facade = SettingsFacade(lambda: fake_services)
+    qapp.processEvents()
+
+    assert facade.availableProviders == [
+        {
+            "value": "siliconflow",
+            "label": "siliconflow",
+            "fields": [
+                {"key": "base_url", "label": "Base URL"},
+                {"key": "model", "label": "Model"},
+            ],
+        },
+        {
+            "value": "newapi",
+            "label": "newapi",
+            "fields": [
+                {"key": "base_url", "label": "Base URL"},
+                {"key": "model", "label": "Model"},
+            ],
+        },
+    ]
+
+
+def test_settings_facade_normalizes_unknown_provider_to_default(
+    fake_services: FakeServices,
+    qapp: QApplication,
+) -> None:
+    facade = SettingsFacade(lambda: fake_services)
+    facade.reload()
+    facade.setProvider("newapi")
+    qapp.processEvents()
+
+    facade.setProvider("unknown-provider")
+    qapp.processEvents()
+
+    assert facade.provider == "siliconflow"
+    assert facade.baseUrl == "https://api.siliconflow.cn/v1"
+    assert facade.model == "deepseek-ai/DeepSeek-V3.2"
+
+
+def test_settings_facade_applies_legacy_snapshot_fields_for_selected_provider(
+    fake_services: FakeServices,
+    qapp: QApplication,
+) -> None:
+    facade = SettingsFacade(lambda: fake_services)
+
+    facade._apply_snapshot(
+        {
+            "provider": "missing-provider",
+            "provider_settings": {
+                "newapi": {
+                    "base_url": " https://newapi.from-settings/v1 ",
+                    "model": " newapi-model ",
+                },
+                "ignored": {
+                    "base_url": "https://ignored.example/v1",
+                    "model": "ignored-model",
+                },
+            },
+            "base_url": " https://legacy.siliconflow/v1 ",
+            "model": " legacy-model ",
+            "timezone": "Asia/Shanghai",
+            "temperature": 30,
+            "max_tokens": 1500,
+        }
+    )
+    qapp.processEvents()
+
+    assert facade.provider == "siliconflow"
+    assert facade.baseUrl == "https://legacy.siliconflow/v1"
+    assert facade.model == "legacy-model"
+
+    facade.setProvider("newapi")
+    qapp.processEvents()
+
+    assert facade.baseUrl == "https://newapi.from-settings/v1"
+    assert facade.model == "newapi-model"
+    assert "ignored" not in facade._snapshot()["provider_settings"]
+
+
 def test_settings_facade_preserves_manual_override_per_provider(
     fake_services: FakeServices,
     qapp: QApplication,
@@ -211,6 +295,33 @@ def test_settings_facade_preserves_manual_override_per_provider(
     qapp.processEvents()
     assert facade.baseUrl == "https://custom.newapi/v1"
     assert facade.model == "custom-chat"
+
+
+def test_settings_facade_provider_specific_field_access_updates_active_provider_only(
+    fake_services: FakeServices,
+    qapp: QApplication,
+) -> None:
+    facade = SettingsFacade(lambda: fake_services)
+    facade.reload()
+    qapp.processEvents()
+
+    facade.setProvider("newapi")
+    facade.setBaseUrl("https://custom.newapi/v1")
+    facade.setModel("custom-chat")
+    qapp.processEvents()
+
+    snapshot = facade._snapshot()
+    assert snapshot["provider"] == "newapi"
+    assert snapshot["base_url"] == "https://custom.newapi/v1"
+    assert snapshot["model"] == "custom-chat"
+    assert snapshot["provider_settings"]["newapi"] == {
+        "base_url": "https://custom.newapi/v1",
+        "model": "custom-chat",
+    }
+    assert snapshot["provider_settings"]["siliconflow"] == {
+        "base_url": "https://api.siliconflow.cn/v1",
+        "model": "deepseek-ai/DeepSeek-V3.2",
+    }
 
 
 def test_settings_facade_save_preserves_non_current_provider_override(

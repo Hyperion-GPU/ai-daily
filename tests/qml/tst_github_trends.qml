@@ -41,7 +41,7 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("github-trends")
-        wait(50)
+        tryCompare(desktopGithubFacade.projectModel, "count", 2, 3000)
 
         verify(findChild(shell, "githubTrendsPage") !== null)
         verify(findChild(shell, "githubSnapshotList") !== null)
@@ -58,19 +58,20 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("github-trends")
-        wait(50)
+        tryCompare(desktopGithubFacade.projectModel, "count", 2, 3000)
 
         desktopGithubFacade.setTrendFilter("rising")
         compare(desktopGithubFacade.stale, true)
         compare(desktopGithubFacade.projectModel.count, 2)
 
         desktopGithubFacade.reload()
-        compare(desktopGithubFacade.stale, false)
-        compare(desktopGithubFacade.projectModel.count, 1)
+        tryCompare(desktopGithubFacade, "stale", false, 3000)
+        tryCompare(desktopGithubFacade.projectModel, "count", 1, 3000)
 
         desktopGithubFacade.clearFilters()
-        compare(desktopGithubFacade.stale, false)
-        compare(desktopGithubFacade.projectModel.count, 2)
+        compare(desktopGithubFacade.stale, true)
+        tryCompare(desktopGithubFacade, "stale", false, 3000)
+        tryCompare(desktopGithubFacade.projectModel, "count", 2, 3000)
         verify(findChild(shell, "githubApplyFiltersButton") !== null)
         verify(findChild(shell, "githubClearFiltersButton") !== null)
 
@@ -82,7 +83,7 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("github-trends")
-        wait(50)
+        tryCompare(desktopGithubFacade, "selectedProjectName", "acme/alpha", 3000)
 
         compare(desktopGithubFacade.selectedProjectName, "acme/alpha")
         desktopGithubFacade.selectProjectRow(1)
@@ -100,7 +101,7 @@ TestCase {
         verify(shell !== null)
 
         appShellFacade.selectWorkspace("github-trends")
-        wait(50)
+        tryCompare(desktopGithubFacade.projectModel, "count", 2, 3000)
 
         compare(desktopGithubFacade.currentDate, "2026-04-15")
         compare(desktopGithubFacade.projectModel.count, 2)

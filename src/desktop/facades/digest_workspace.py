@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, Property, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 
 from ..models import DigestArchiveListModel, DigestArticleListModel
 from ..tasks import DigestCommandGateway
-from ..workers import AsyncTaskThread
+from ..workers import AsyncTaskThread, normalize_failure_payload
+from .digest_workspace_support import DigestFilterState, DigestSnapshotLoad, DigestSnapshotLoader
 
 
 _SORT_LABELS = {
@@ -24,6 +25,8 @@ _PROGRESS_STAGE_PERCENT = {
     "completed": 100,
     "error": 100,
 }
+_FILTER_RELOAD_DEBOUNCE_MS = 120
+SnapshotTaskThread = AsyncTaskThread
 
 
 class DigestWorkspaceFacade(QObject):
@@ -58,16 +61,22 @@ class DigestWorkspaceFacade(QObject):
         self._article_model.selectionChanged.connect(self.hasSelectionChanged)
         self._article_model.selectionChanged.connect(self.selectedArticleChanged)
         self._task_thread: AsyncTaskThread | None = None
+        self._task_threads: dict[int, AsyncTaskThread] = {}
+        self._snapshot_threads: dict[int, SnapshotTaskThread] = {}
+        self._task_request_id = 0
+        self._snapshot_request_id = 0
+        self._pending_filter_request_id = 0
+        self._filters = DigestFilterState()
+        self._snapshot_loader = DigestSnapshotLoader(self._gateway)
+        self._filter_reload_timer = QTimer(self)
+        self._filter_reload_timer.setSingleShot(True)
+        self._filter_reload_timer.setInterval(_FILTER_RELOAD_DEBOUNCE_MS)
+        self._filter_reload_timer.timeout.connect(self._apply_pending_filter_reload)
         self._current_date = ""
         self._busy = False
         self._error_message = ""
         self._notice_message = ""
         self._stale = True
-        self._category_filter = ""
-        self._selected_tags: list[str] = []
-        self._min_importance = 1
-        self._sort_key = "importance"
-        self._search_query = ""
         self._available_tags: list[dict[str, Any]] = []
         self._archive_count = 0
         self._current_date_article_count = 0
@@ -76,24 +85,6 @@ class DigestWorkspaceFacade(QObject):
         self._pipeline_progress_text = ""
         self._pipeline_progress_value = 0
         self._last_fetch_outcome = ""
-
-    def _filters_payload(self) -> dict[str, Any]:
-        return {
-            "selectedTags": list(self._selected_tags),
-            "categoryFilter": self._category_filter,
-            "minImportance": self._min_importance,
-            "sortKey": self._sort_key,
-            "searchQuery": self._search_query,
-        }
-
-    def _base_filters(self) -> dict[str, Any]:
-        return {
-            "selectedTags": [],
-            "categoryFilter": "",
-            "minImportance": 1,
-            "sortKey": "importance",
-            "searchQuery": "",
-        }
 
     def _set_current_date(self, value: str) -> None:
         value = value.strip()
@@ -130,7 +121,8 @@ class DigestWorkspaceFacade(QObject):
         self._stale = value
         self.staleChanged.emit()
 
-    def _set_available_tags(self, tags: list[dict[str, Any]]) -> None:
+    @staticmethod
+    def _normalize_available_tags(tags: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
         for tag in tags:
             value = str(tag.get("value", "") or "").strip()
@@ -143,10 +135,14 @@ class DigestWorkspaceFacade(QObject):
                     "count": int(tag.get("count", 0) or 0),
                 }
             )
+        return normalized
+
+    def _replace_available_tags(self, tags: list[dict[str, Any]]) -> bool:
+        normalized = self._normalize_available_tags(tags)
         if normalized == self._available_tags:
-            return
+            return False
         self._available_tags = normalized
-        self.availableTagsChanged.emit()
+        return True
 
     def _set_archive_count(self, value: int) -> None:
         value = int(value)
@@ -194,42 +190,32 @@ class DigestWorkspaceFacade(QObject):
         self._last_fetch_outcome = value
         self.lastFetchOutcomeChanged.emit()
 
-    def _sync_selected_tags_to_available(self) -> None:
-        if not self._selected_tags:
-            return
-        visible = {item["value"] for item in self._available_tags}
-        filtered = [tag for tag in self._selected_tags if tag in visible]
-        if filtered == self._selected_tags:
-            return
-        self._selected_tags = filtered
-        self.selectedTagsChanged.emit()
+    def _sync_available_tags_and_selection(self, tags: list[dict[str, Any]]) -> None:
+        available_tags_changed = self._replace_available_tags(tags)
+        selected_tags_changed = self._filters.sync_selected_tags_to_available(self._available_tags)
+        if selected_tags_changed:
+            self.selectedTagsChanged.emit()
+        if available_tags_changed:
+            self.availableTagsChanged.emit()
 
     def _clear_article_state(self) -> None:
         self._article_model.clear()
         self._set_current_date_article_count(0)
         self._set_filtered_article_count(0)
-        self._set_available_tags([])
+        self._sync_available_tags_and_selection([])
         self._set_summary_text("")
         self.hasSelectionChanged.emit()
         self.selectedArticleChanged.emit()
         self.selectedArticleIdChanged.emit()
 
     def _update_summary_text(self) -> None:
-        if not self._current_date:
-            self._set_summary_text("")
-            return
-        parts = [
-            self._current_date,
-            f"{self._filtered_article_count} 篇文章",
-            _SORT_LABELS.get(self._sort_key, self._sort_key),
-        ]
-        if self._search_query:
-            parts.append(f'搜索 “{self._search_query}”')
-        if self._category_filter:
-            parts.append(f"分类 {self._category_filter}")
-        if self._selected_tags:
-            parts.append("标签 " + " / ".join(self._selected_tags))
-        self._set_summary_text(" · ".join(parts))
+        self._set_summary_text(
+            self._filters.summary_text(
+                current_date=self._current_date,
+                filtered_count=self._filtered_article_count,
+                sort_labels=_SORT_LABELS,
+            )
+        )
 
     def _apply_article_snapshot(self, snapshot: dict[str, Any] | None) -> None:
         items = list((snapshot or {}).get("articles", []))
@@ -246,30 +232,132 @@ class DigestWorkspaceFacade(QObject):
         self.selectedArticleChanged.emit()
         self.selectedArticleIdChanged.emit()
 
-    def _available_tags_from_snapshot(self, snapshot: dict[str, Any] | None) -> list[dict[str, Any]]:
-        by_tag = dict((snapshot or {}).get("stats", {}).get("byTag", {}) or {})
-        return [
-            {
-                "value": str(tag),
-                "label": f"{tag} ({_count})",
-                "count": int(_count),
-            }
-            for tag, _count in sorted(
-                by_tag.items(),
-                key=lambda item: (-int(item[1]), str(item[0]).casefold()),
+    def _invalidate_base_snapshot_cache(self) -> None:
+        self._snapshot_loader.invalidate_cache()
+
+    def _next_snapshot_request_id(self) -> int:
+        self._snapshot_request_id += 1
+        return self._snapshot_request_id
+
+    def _is_latest_snapshot_request(self, request_id: int) -> bool:
+        return request_id == self._snapshot_request_id
+
+    def _cancel_pending_filter_reload(self) -> None:
+        if self._filter_reload_timer.isActive():
+            self._filter_reload_timer.stop()
+        self._pending_filter_request_id = 0
+
+    def _schedule_current_date_reload(self) -> None:
+        if not self._current_date:
+            return
+        self._pending_filter_request_id = self._next_snapshot_request_id()
+        self._filter_reload_timer.start()
+
+    def _apply_pending_filter_reload(self) -> None:
+        request_id = self._pending_filter_request_id
+        self._pending_filter_request_id = 0
+        if not request_id or not self._is_latest_snapshot_request(request_id) or not self._current_date:
+            return
+        self._load_snapshot_for_date(self._current_date, request_id=request_id)
+
+    def _load_snapshot_for_date(self, date_value: str, *, request_id: int) -> None:
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
+        filters = self._copy_filters()
+        task_thread = SnapshotTaskThread(
+            lambda _emit, date_value=date_value, filters=filters: self._load_snapshot_async(date_value, filters),
+            None,
+        )
+        self._snapshot_threads[request_id] = task_thread
+        task_thread.succeeded.connect(
+            lambda result, request_id=request_id, date_value=date_value: self._handle_snapshot_success(
+                request_id,
+                date_value,
+                result,
             )
-            if str(tag).strip()
-        ]
+        )
+        task_thread.failed.connect(
+            lambda failure, request_id=request_id, date_value=date_value: self._handle_snapshot_failure(
+                request_id,
+                date_value,
+                failure,
+            )
+        )
+        task_thread.finished.connect(
+            lambda request_id=request_id, task_thread=task_thread: self._clear_snapshot_task(
+                request_id,
+                task_thread,
+            )
+        )
+        task_thread.start()
 
-    def _load_snapshot_for_date(self, date_value: str) -> None:
-        base_snapshot = self._gateway.load_snapshot(date_value, self._base_filters())
-        self._set_current_date_article_count(int((base_snapshot or {}).get("stats", {}).get("total", 0) or 0))
-        self._set_available_tags(self._available_tags_from_snapshot(base_snapshot))
-        self._sync_selected_tags_to_available()
+    def _copy_filters(self) -> DigestFilterState:
+        return DigestFilterState(
+            category_filter=self._filters.category_filter,
+            selected_tags=list(self._filters.selected_tags),
+            min_importance=self._filters.min_importance,
+            sort_key=self._filters.sort_key,
+            search_query=self._filters.search_query,
+        )
 
-        filtered_snapshot = self._gateway.load_snapshot(date_value, self._filters_payload())
-        self._apply_article_snapshot(filtered_snapshot)
+    async def _load_snapshot_async(
+        self,
+        date_value: str,
+        filters: DigestFilterState,
+    ) -> dict[str, Any]:
+        base_snapshot_load = self._snapshot_loader.load(date_value, DigestFilterState())
+        effective_filters = DigestFilterState(
+            category_filter=filters.category_filter,
+            selected_tags=list(filters.selected_tags),
+            min_importance=filters.min_importance,
+            sort_key=filters.sort_key,
+            search_query=filters.search_query,
+        )
+        effective_filters.sync_selected_tags_to_available(base_snapshot_load.available_tags)
+        snapshot_load = (
+            base_snapshot_load
+            if effective_filters.is_base()
+            else self._snapshot_loader.load(date_value, effective_filters)
+        )
+        return self._snapshot_load_payload(
+            snapshot_load,
+            selected_tags=effective_filters.selected_tags,
+        )
+
+    @staticmethod
+    def _snapshot_load_payload(
+        snapshot_load: DigestSnapshotLoad,
+        *,
+        selected_tags: list[str],
+    ) -> dict[str, Any]:
+        return {
+            "currentArticleCount": snapshot_load.current_article_count,
+            "availableTags": list(snapshot_load.available_tags),
+            "filteredSnapshot": snapshot_load.filtered_snapshot,
+            "selectedTags": list(selected_tags),
+        }
+
+    def _clear_snapshot_task(self, request_id: int, task_thread: SnapshotTaskThread) -> None:
+        self._snapshot_threads.pop(request_id, None)
+        task_thread.deleteLater()
+
+    def _handle_snapshot_success(self, request_id: int, date_value: str, result: object) -> None:
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
+        payload = dict(result or {})
+        self._set_current_date_article_count(int(payload.get("currentArticleCount", 0) or 0))
+        self._sync_available_tags_and_selection(list(payload.get("availableTags", []) or []))
+        if "selectedTags" in payload:
+            self._filters.selected_tags = list(payload.get("selectedTags", []) or [])
+        self._apply_article_snapshot(payload.get("filteredSnapshot"))
         self._set_stale(False)
+
+    def _handle_snapshot_failure(self, request_id: int, date_value: str, failure: object) -> None:
+        if not self._is_latest_snapshot_request(request_id) or date_value != self._current_date:
+            return
+        payload = normalize_failure_payload(failure)
+        self._set_error_message(str(payload.get("message", "") or "蹇収鍔犺浇澶辫触"))
+        self._set_stale(True)
 
     def get_current_date(self) -> str:
         return self._current_date
@@ -290,19 +378,19 @@ class DigestWorkspaceFacade(QObject):
         return self._stale
 
     def get_category_filter(self) -> str:
-        return self._category_filter
+        return self._filters.category_filter
 
     def get_selected_tags(self) -> list[str]:
-        return list(self._selected_tags)
+        return list(self._filters.selected_tags)
 
     def get_min_importance(self) -> int:
-        return self._min_importance
+        return self._filters.min_importance
 
     def get_sort_key(self) -> str:
-        return self._sort_key
+        return self._filters.sort_key
 
     def get_search_query(self) -> str:
-        return self._search_query
+        return self._filters.search_query
 
     def get_available_tags(self) -> list[dict[str, Any]]:
         return list(self._available_tags)
@@ -348,6 +436,8 @@ class DigestWorkspaceFacade(QObject):
 
     @Slot()
     def reload(self) -> None:
+        self._cancel_pending_filter_reload()
+        self._invalidate_base_snapshot_cache()
         self._set_error_message("")
         self._reload_dates()
         if not self._current_date:
@@ -359,6 +449,8 @@ class DigestWorkspaceFacade(QObject):
     def _reload_dates(self, *, select_latest: bool = False) -> str:
         payload = self._gateway.list_dates()
         items = list(payload.get("dates", []))
+        available_dates = {str(item.get("date", "") or "") for item in items}
+        self._snapshot_loader.prune_cache(available_dates)
         latest = str(payload.get("latest", "") or "")
         desired_date = latest if select_latest else (self._current_date or latest)
         if desired_date and not any(item.get("date") == desired_date for item in items):
@@ -371,11 +463,14 @@ class DigestWorkspaceFacade(QObject):
 
     @Slot()
     def reloadDates(self) -> None:
+        self._cancel_pending_filter_reload()
         self._reload_dates()
 
     @Slot(str)
     def selectDate(self, date_value: str) -> None:
         date_value = date_value.strip()
+        self._cancel_pending_filter_reload()
+        request_id = self._next_snapshot_request_id()
         if not date_value:
             self._archive_model.set_selected_date("")
             self._set_current_date("")
@@ -385,7 +480,7 @@ class DigestWorkspaceFacade(QObject):
         self._set_error_message("")
         self._archive_model.set_selected_date(date_value)
         self._set_current_date(date_value)
-        self._load_snapshot_for_date(date_value)
+        self._load_snapshot_for_date(date_value, request_id=request_id)
 
     @Slot(int)
     def selectArchiveRow(self, row: int) -> None:
@@ -411,15 +506,14 @@ class DigestWorkspaceFacade(QObject):
         self.selectedArticleIdChanged.emit()
 
     def _reload_current_date_if_ready(self) -> None:
-        if self._current_date:
-            self.selectDate(self._current_date)
+        self._schedule_current_date_reload()
 
     @Slot(str)
     def setCategoryFilter(self, value: str) -> None:
         value = value.strip()
-        if value == self._category_filter:
+        if value == self._filters.category_filter:
             return
-        self._category_filter = value
+        self._filters.category_filter = value
         self.categoryFilterChanged.emit()
         self._reload_current_date_if_ready()
 
@@ -428,27 +522,27 @@ class DigestWorkspaceFacade(QObject):
         value = value.strip()
         if not value:
             return
-        if value in self._selected_tags:
-            self._selected_tags = [tag for tag in self._selected_tags if tag != value]
+        if value in self._filters.selected_tags:
+            self._filters.selected_tags = [tag for tag in self._filters.selected_tags if tag != value]
         else:
-            self._selected_tags = [*self._selected_tags, value]
+            self._filters.selected_tags = [*self._filters.selected_tags, value]
         self.selectedTagsChanged.emit()
         self._reload_current_date_if_ready()
 
     @Slot()
     def clearSelectedTags(self) -> None:
-        if not self._selected_tags:
+        if not self._filters.selected_tags:
             return
-        self._selected_tags = []
+        self._filters.selected_tags = []
         self.selectedTagsChanged.emit()
         self._reload_current_date_if_ready()
 
     @Slot(int)
     def setMinImportance(self, value: int) -> None:
         value = max(1, min(5, int(value)))
-        if value == self._min_importance:
+        if value == self._filters.min_importance:
             return
-        self._min_importance = value
+        self._filters.min_importance = value
         self.minImportanceChanged.emit()
         self._reload_current_date_if_ready()
 
@@ -457,42 +551,42 @@ class DigestWorkspaceFacade(QObject):
         value = value.strip() or "importance"
         if value not in _SORT_LABELS:
             value = "importance"
-        if value == self._sort_key:
+        if value == self._filters.sort_key:
             return
-        self._sort_key = value
+        self._filters.sort_key = value
         self.sortKeyChanged.emit()
         self._reload_current_date_if_ready()
 
     @Slot(str)
     def setSearchQuery(self, value: str) -> None:
         value = value.strip()
-        if value == self._search_query:
+        if value == self._filters.search_query:
             return
-        self._search_query = value
+        self._filters.search_query = value
         self.searchQueryChanged.emit()
         self._reload_current_date_if_ready()
 
     @Slot()
     def clearFilters(self) -> None:
         changed = False
-        if self._category_filter:
-            self._category_filter = ""
+        if self._filters.category_filter:
+            self._filters.category_filter = ""
             self.categoryFilterChanged.emit()
             changed = True
-        if self._selected_tags:
-            self._selected_tags = []
+        if self._filters.selected_tags:
+            self._filters.selected_tags = []
             self.selectedTagsChanged.emit()
             changed = True
-        if self._min_importance != 1:
-            self._min_importance = 1
+        if self._filters.min_importance != 1:
+            self._filters.min_importance = 1
             self.minImportanceChanged.emit()
             changed = True
-        if self._sort_key != "importance":
-            self._sort_key = "importance"
+        if self._filters.sort_key != "importance":
+            self._filters.sort_key = "importance"
             self.sortKeyChanged.emit()
             changed = True
-        if self._search_query:
-            self._search_query = ""
+        if self._filters.search_query:
+            self._filters.search_query = ""
             self.searchQueryChanged.emit()
             changed = True
         if changed:
@@ -500,22 +594,34 @@ class DigestWorkspaceFacade(QObject):
 
     @Slot()
     def runFetch(self) -> None:
-        if self._task_thread is not None:
+        if self._busy or self._task_threads:
+            self._set_notice_message("已有抓取任务在运行。")
             return
+        request_id = self._next_task_request_id()
         self._set_busy(True)
         self._set_error_message("")
         self._set_notice_message("正在抓取 RSS 与摘要...")
         self._set_pipeline_progress_text("starting: 正在抓取 RSS 与摘要...")
         self._set_pipeline_progress_value(5)
-        self._task_thread = AsyncTaskThread(
+        task_thread = AsyncTaskThread(
             lambda emit: self._gateway.run_fetch(progress_callback=emit),
             self,
         )
-        self._task_thread.progress.connect(self._handle_progress)
-        self._task_thread.succeeded.connect(self._handle_success)
-        self._task_thread.failed.connect(self._handle_failure)
-        self._task_thread.finished.connect(self._clear_task)
-        self._task_thread.start()
+        self._task_threads[request_id] = task_thread
+        self._task_thread = task_thread
+        task_thread.progress.connect(
+            lambda payload, request_id=request_id: self._handle_progress(request_id, payload)
+        )
+        task_thread.succeeded.connect(
+            lambda result, request_id=request_id: self._handle_success(request_id, result)
+        )
+        task_thread.failed.connect(
+            lambda failure, request_id=request_id: self._handle_failure(request_id, failure)
+        )
+        task_thread.finished.connect(
+            lambda request_id=request_id, task_thread=task_thread: self._clear_task(request_id, task_thread)
+        )
+        task_thread.start()
 
     @Slot()
     def openSelectedArticle(self) -> None:
@@ -524,11 +630,23 @@ class DigestWorkspaceFacade(QObject):
             return
         QDesktopServices.openUrl(QUrl(url))
 
-    def _clear_task(self) -> None:
-        self._task_thread = None
-        self._set_busy(False)
+    def _next_task_request_id(self) -> int:
+        self._task_request_id += 1
+        return self._task_request_id
 
-    def _handle_progress(self, payload: dict[str, Any]) -> None:
+    def _is_latest_task(self, request_id: int) -> bool:
+        return request_id == self._task_request_id
+
+    def _clear_task(self, request_id: int, task_thread: AsyncTaskThread) -> None:
+        self._task_threads.pop(request_id, None)
+        if self._task_thread is task_thread:
+            self._task_thread = next(iter(self._task_threads.values()), None)
+        task_thread.deleteLater()
+        self._set_busy(bool(self._task_threads))
+
+    def _handle_progress(self, request_id: int, payload: dict[str, Any]) -> None:
+        if not self._is_latest_task(request_id):
+            return
         stage = str(payload.get("stage", "") or "running")
         message = str(payload.get("message", "") or "处理中")
         current = payload.get("current")
@@ -542,7 +660,9 @@ class DigestWorkspaceFacade(QObject):
         self._set_pipeline_progress_value(percent)
         self._set_notice_message(status_text)
 
-    def _handle_success(self, result: object) -> None:
+    def _handle_success(self, request_id: int, result: object) -> None:
+        if not self._is_latest_task(request_id):
+            return
         payload = dict(result or {})
         outcome = str(payload.get("outcome", payload.get("result", "")) or "success")
         if outcome == "no_new_items":
@@ -555,15 +675,21 @@ class DigestWorkspaceFacade(QObject):
         self._set_pipeline_progress_value(100)
         self._set_notice_message(notice)
         if outcome == "success":
+            self._invalidate_base_snapshot_cache()
             latest_date = self._reload_dates(select_latest=True)
             if latest_date:
                 self.selectDate(latest_date)
 
-    def _handle_failure(self, message: str) -> None:
+    def _handle_failure(self, request_id: int, failure: object) -> None:
+        if not self._is_latest_task(request_id):
+            return
+        payload = normalize_failure_payload(failure)
+        message = str(payload.get("message", "") or "任务失败")
+        stage = str(payload.get("stage", "") or "task")
         self._set_last_fetch_outcome("error")
         self._set_error_message(message)
         self._set_notice_message("")
-        self._set_pipeline_progress_text(f"error: {message}")
+        self._set_pipeline_progress_text(f"{stage}: {message}" if stage == "error" else f"error: {message}")
         self._set_pipeline_progress_value(100)
 
     currentDate = Property(str, get_current_date, notify=currentDateChanged)
