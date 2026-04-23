@@ -594,6 +594,9 @@ class DigestWorkspaceFacade(QObject):
 
     @Slot()
     def runFetch(self) -> None:
+        if self._busy or self._task_threads:
+            self._set_notice_message("已有抓取任务在运行。")
+            return
         request_id = self._next_task_request_id()
         self._set_busy(True)
         self._set_error_message("")
@@ -637,10 +640,9 @@ class DigestWorkspaceFacade(QObject):
     def _clear_task(self, request_id: int, task_thread: AsyncTaskThread) -> None:
         self._task_threads.pop(request_id, None)
         if self._task_thread is task_thread:
-            self._task_thread = None
+            self._task_thread = next(iter(self._task_threads.values()), None)
         task_thread.deleteLater()
-        if self._is_latest_task(request_id):
-            self._set_busy(False)
+        self._set_busy(bool(self._task_threads))
 
     def _handle_progress(self, request_id: int, payload: dict[str, Any]) -> None:
         if not self._is_latest_task(request_id):

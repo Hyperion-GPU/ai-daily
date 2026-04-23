@@ -649,7 +649,7 @@ def test_digest_workspace_run_fetch_failure_surfaces_error(
     assert facade._task_threads == {}
 
 
-def test_digest_workspace_discards_stale_fetch_result(
+def test_digest_workspace_run_fetch_is_single_flight(
     fake_services: FakeServices,
     qapp: QApplication,
     monkeypatch: pytest.MonkeyPatch,
@@ -661,68 +661,24 @@ def test_digest_workspace_discards_stale_fetch_result(
     facade.selectDate("2026-04-14")
     _wait_for_article(facade, qapp, "gamma")
 
-    stale_snapshot = _snapshot(
-        "2026-04-16",
-        [
-            _article(
-                "stale",
-                title="Stale",
-                source_category="official",
-                source_name="Stale Labs",
-                tags=["old"],
-                importance=5,
-                published="2026-04-16T09:00:00+08:00",
-            )
-        ],
-    )
-    latest_snapshot = _snapshot(
-        "2026-04-17",
-        [
-            _article(
-                "latest",
-                title="Latest",
-                source_category="official",
-                source_name="Latest Labs",
-                tags=["new"],
-                importance=5,
-                published="2026-04-17T09:00:00+08:00",
-            )
-        ],
-    )
-
-    fake_services.fetch_snapshot = stale_snapshot
     facade.runFetch()
     first_task = ControlledTaskThread.instances[-1]
     qapp.processEvents()
 
-    fake_services.fetch_snapshot = latest_snapshot
     facade.runFetch()
-    second_task = ControlledTaskThread.instances[-1]
     qapp.processEvents()
 
-    assert first_task is not second_task
+    assert ControlledTaskThread.instances == [first_task]
     assert facade.busy is True
-    assert facade._task_thread is second_task
-    assert len(facade._task_threads) == 2
-
-    first_task.progress.emit({"stage": "stage2", "message": "stale progress", "current": 4, "total": 4})
-    qapp.processEvents()
+    assert facade._task_thread is first_task
+    assert len(facade._task_threads) == 1
+    assert facade.noticeMessage == "已有抓取任务在运行。"
 
     assert facade.pipelineProgressText == "starting: 正在抓取 RSS 与摘要..."
 
-    second_task.complete_success()
-    _wait_for_article(facade, qapp, "latest")
+    first_task.complete_success()
+    _wait_for_article(facade, qapp, "alpha")
 
     assert facade.busy is False
-    assert facade.currentDate == "2026-04-17"
-    assert facade.selectedArticleId == "latest"
     assert facade._task_thread is None
-    assert len(facade._task_threads) == 1
-
-    fake_services.fetch_snapshot = stale_snapshot
-    first_task.complete_success()
-    qapp.processEvents()
-
-    assert facade.currentDate == "2026-04-17"
-    assert facade.selectedArticleId == "latest"
     assert facade._task_threads == {}

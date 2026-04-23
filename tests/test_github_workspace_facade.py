@@ -641,7 +641,7 @@ def test_github_workspace_run_fetch_failure_surfaces_error(
     assert facade._task_threads == {}
 
 
-def test_github_workspace_discards_stale_fetch_result(
+def test_github_workspace_run_fetch_is_single_flight(
     fake_services: FakeServices,
     qapp: QApplication,
     monkeypatch: pytest.MonkeyPatch,
@@ -653,84 +653,22 @@ def test_github_workspace_discards_stale_fetch_result(
     facade.selectDate("2026-04-14")
     _wait_for_project(facade, qapp, "acme/gamma")
 
-    stale_snapshot = _snapshot(
-        "2026-04-16",
-        projects=[
-            _project(
-                "acme/stale",
-                name="acme/stale",
-                description="Stale helper",
-                description_zh="旧助手",
-                language="Python",
-                category="llm",
-                stars=100,
-                stars_today=1,
-                stars_weekly=2,
-                trend="stable",
-                updated_at="2026-04-16T08:00:00Z",
-            )
-        ],
-        by_language={"Python": 1},
-        by_category={"llm": 1},
-    )
-    latest_snapshot = _snapshot(
-        "2026-04-17",
-        projects=[
-            _project(
-                "acme/latest",
-                name="acme/latest",
-                description="Latest helper",
-                description_zh="新助手",
-                language="TypeScript",
-                category="agent",
-                stars=200,
-                stars_today=5,
-                stars_weekly=8,
-                trend="rising",
-                updated_at="2026-04-17T08:00:00Z",
-            )
-        ],
-        by_language={"TypeScript": 1},
-        by_category={"agent": 1},
-    )
-
-    fake_services.fetch_result = _fetch_result(stale_snapshot)
     facade.runFetch()
     first_task = ControlledTaskThread.instances[-1]
     qapp.processEvents()
 
-    fake_services.github_dates = ["2026-04-17", "2026-04-15", "2026-04-14"]
-    fake_services.snapshots["2026-04-17"] = latest_snapshot
-    fake_services.fetch_result = _fetch_result(latest_snapshot)
     facade.runFetch()
-    second_task = ControlledTaskThread.instances[-1]
     qapp.processEvents()
 
-    assert first_task is not second_task
+    assert ControlledTaskThread.instances == [first_task]
     assert facade.busy is True
-    assert facade._task_thread is second_task
-    assert len(facade._task_threads) == 2
+    assert facade._task_thread is first_task
+    assert len(facade._task_threads) == 1
+    assert facade.noticeMessage == "已有抓取任务在运行。"
 
-    first_task.progress.emit({"stage": "searching", "message": "stale", "current": 4, "total": 4})
-    qapp.processEvents()
-
-    assert facade.noticeMessage == "正在抓取 GitHub 趋势快照..."
-
-    second_task.complete_success()
-    _wait_for_project(facade, qapp, "acme/latest")
+    first_task.complete_success()
+    _wait_for_project(facade, qapp, "acme/alpha")
 
     assert facade.busy is False
-    assert facade.currentDate == "2026-04-17"
-    assert facade.selectedProjectName == "acme/latest"
     assert facade._task_thread is None
-    assert len(facade._task_threads) == 1
-
-    fake_services.github_dates = ["2026-04-16", "2026-04-17", "2026-04-15", "2026-04-14"]
-    fake_services.snapshots["2026-04-16"] = stale_snapshot
-    fake_services.fetch_result = _fetch_result(stale_snapshot)
-    first_task.complete_success()
-    qapp.processEvents()
-
-    assert facade.currentDate == "2026-04-17"
-    assert facade.selectedProjectName == "acme/latest"
     assert facade._task_threads == {}
