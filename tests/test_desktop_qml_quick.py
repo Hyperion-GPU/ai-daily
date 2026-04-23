@@ -5,11 +5,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNNER = REPO_ROOT / "tests" / "qml" / "run_quick_tests.py"
 
 
 def test_qt_quick_test_suite_passes() -> None:
+    pytest.importorskip("PySide6")
+
     env = os.environ.copy()
     env.setdefault("QT_QPA_PLATFORM", "offscreen")
     env.setdefault("AI_DAILY_QML_STYLE", "Basic")

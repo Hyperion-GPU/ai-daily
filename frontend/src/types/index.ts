@@ -70,25 +70,25 @@ export interface PipelineStatusResponse {
 export interface GitHubProject {
   id: string;
   full_name: string;
-  description: string | null;
-  description_zh: string | null;
+  description?: string | null;
+  description_zh?: string | null;
   html_url: string;
-  homepage: string | null;
+  homepage?: string | null;
   stars: number;
   forks: number;
   open_issues: number;
-  language: string | null;
+  language?: string | null;
   topics: Array<string>;
   category: 'llm' | 'agent' | 'cv' | 'nlp' | 'ml_framework' | 'mlops' | 'general';
-  created_at: string | null;
-  updated_at: string | null;
-  pushed_at: string | null;
-  owner_avatar: string | null;
-  owner_type: string | null;
-  license: string | null;
-  stars_today: number | null;
-  stars_weekly: number | null;
-  trend: 'hot' | 'rising' | 'stable' | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  pushed_at?: string | null;
+  owner_avatar?: string | null;
+  owner_type?: string | null;
+  license?: string | null;
+  stars_today?: number | null;
+  stars_weekly?: number | null;
+  trend?: 'hot' | 'rising' | 'stable' | null;
 }
 
 export interface GitHubTrendingStats {
@@ -106,14 +106,14 @@ export interface GitHubTrendingResponse {
 
 export interface GitHubFetchResult {
   outcome: 'success' | 'degraded';
-  reason: 'missing_token' | 'rate_limit' | null;
-  snapshot: GitHubTrendingResponse | null;
-  partial_path: string | null;
+  reason?: 'missing_token' | 'rate_limit' | null;
+  snapshot?: GitHubTrendingResponse | null;
+  partial_path?: string | null;
 }
 
 export interface GitHubDateListResponse {
   dates: Array<string>;
-  latest: string | null;
+  latest?: string | null;
 }
 
 export interface GitHubQueryParams {
