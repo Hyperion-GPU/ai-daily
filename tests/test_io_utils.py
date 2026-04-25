@@ -39,10 +39,15 @@ def test_atomic_write_text_uses_umask_permissions_for_new_file(tmp_path):
     atomic_path = tmp_path / "atomic.txt"
     regular_path = tmp_path / "regular.txt"
 
-    atomic_write_text(atomic_path, "atomic")
-    regular_path.write_text("regular", encoding="utf-8")
+    previous_umask = os.umask(0o022)
+    try:
+        atomic_write_text(atomic_path, "atomic")
+        regular_path.write_text("regular", encoding="utf-8")
+    finally:
+        os.umask(previous_umask)
 
     assert (atomic_path.stat().st_mode & 0o777) == (regular_path.stat().st_mode & 0o777)
+    assert (atomic_path.stat().st_mode & 0o777) == 0o644
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not stable on Windows")
@@ -55,6 +60,32 @@ def test_atomic_write_text_preserves_existing_file_mode(tmp_path):
 
     assert path.read_text(encoding="utf-8") == "new"
     assert (path.stat().st_mode & 0o777) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not stable on Windows")
+def test_atomic_write_text_keeps_restricted_replacement_temp_mode(tmp_path, monkeypatch):
+    path = tmp_path / "secret.txt"
+    path.write_text("old", encoding="utf-8")
+    os.chmod(path, 0o600)
+    created_modes: list[int] = []
+    real_create_temporary_file = io_utils._create_temporary_file
+
+    def recording_create_temporary_file(target, mode):
+        fd, temp_path = real_create_temporary_file(target, mode)
+        created_modes.append(temp_path.stat().st_mode & 0o777)
+        return fd, temp_path
+
+    monkeypatch.setattr(io_utils, "_create_temporary_file", recording_create_temporary_file)
+
+    previous_umask = os.umask(0o022)
+    try:
+        atomic_write_text(path, "new")
+    finally:
+        os.umask(previous_umask)
+
+    assert created_modes == [0o600]
+    assert path.read_text(encoding="utf-8") == "new"
+    assert (path.stat().st_mode & 0o777) == 0o600
 
 
 def test_atomic_write_text_uses_fsync_and_atomic_replace(tmp_path, monkeypatch):
