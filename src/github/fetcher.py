@@ -7,6 +7,7 @@ from typing import Literal, TypedDict
 
 import httpx
 
+from src.io_utils import atomic_write_json
 from src.runtime import get_runtime_paths
 from src.settings import get_github_token
 from src.utils import now_in_config_timezone, setup_logger
@@ -290,7 +291,7 @@ class GitHubTrendingFetcher:
 
     @staticmethod
     def _write_json(path: Path, payload: dict) -> None:
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write_json(path, payload)
 
     def _remove_partial_snapshot(self, date_str: str) -> None:
         path = self._partial_snapshot_path(date_str)

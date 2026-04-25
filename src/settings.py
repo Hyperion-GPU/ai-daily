@@ -11,6 +11,7 @@ from typing import Mapping
 import yaml
 from dotenv import load_dotenv
 
+from .io_utils import atomic_write_text
 from .runtime import APP_NAME, apply_runtime_metadata, ensure_runtime_dirs, get_runtime_paths, strip_runtime_metadata
 
 try:  # pragma: no cover - exercised indirectly when the dependency exists
@@ -76,8 +77,8 @@ def save_config(config: Mapping[str, object], config_path: str | Path | None = N
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload = strip_runtime_metadata(config)
-    with open(target_path, "w", encoding="utf-8") as file:
-        yaml.safe_dump(payload, file, allow_unicode=True, sort_keys=False)
+    text = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False)
+    atomic_write_text(target_path, text)
     return target_path
 
 
