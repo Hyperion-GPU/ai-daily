@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _create_temporary_file(target: Path, mode: int) -> tuple[int, Path]:
     for _ in range(100):
-        candidate = target.parent / f".{target.name}.{secrets.token_hex(8)}"
+        candidate = target.parent / f".aidaily-{secrets.token_hex(8)}.tmp"
         try:
             fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
         except FileExistsError:

@@ -34,6 +34,15 @@ def test_atomic_write_json_writes_valid_json(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == payload
 
 
+@pytest.mark.skipif(os.name == "nt", reason="component length semantics differ on Windows")
+def test_atomic_write_text_handles_long_legal_target_name(tmp_path):
+    path = tmp_path / ("a" * 240)
+
+    atomic_write_text(path, "long")
+
+    assert path.read_text(encoding="utf-8") == "long"
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not stable on Windows")
 def test_atomic_write_text_uses_umask_permissions_for_new_file(tmp_path):
     atomic_path = tmp_path / "atomic.txt"
