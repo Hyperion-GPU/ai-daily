@@ -2,8 +2,19 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
+import secrets
 from pathlib import Path
+
+
+def _create_temporary_file(target: Path, mode: int) -> tuple[int, Path]:
+    for _ in range(100):
+        candidate = target.parent / f".aidaily-{secrets.token_hex(8)}.tmp"
+        try:
+            fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        except FileExistsError:
+            continue
+        return fd, candidate
+    raise FileExistsError(f"Could not create a unique temporary file for {target}")
 
 
 def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
@@ -18,8 +29,10 @@ def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
         target_mode = None
 
     try:
-        fd, temp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", text=True)
-        temp_path = Path(temp_name)
+        create_mode = target_mode if target_mode is not None else 0o666
+        fd, temp_path = _create_temporary_file(target, create_mode)
+        if target_mode is not None:
+            os.chmod(temp_path, target_mode)
         with os.fdopen(fd, "w", encoding=encoding) as temp_file:
             fd = None
             temp_file.write(text)
