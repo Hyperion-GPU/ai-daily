@@ -11,19 +11,17 @@ def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None
+    fd: int | None = None
     try:
         target_mode = target.stat().st_mode & 0o777
     except FileNotFoundError:
         target_mode = None
 
     try:
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding=encoding,
-            dir=target.parent,
-            delete=False,
-        ) as temp_file:
-            temp_path = Path(temp_file.name)
+        fd, temp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", text=True)
+        temp_path = Path(temp_name)
+        with os.fdopen(fd, "w", encoding=encoding) as temp_file:
+            fd = None
             temp_file.write(text)
             temp_file.flush()
             os.fsync(temp_file.fileno())
@@ -33,6 +31,11 @@ def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
         os.replace(temp_path, target)
         temp_path = None
     finally:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
         if temp_path is not None:
             try:
                 temp_path.unlink()

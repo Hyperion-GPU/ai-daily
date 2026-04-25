@@ -206,6 +206,55 @@ async def test_fetch_feed_enriches_each_eligible_article_once(monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("category", ["news", "official", "community"])
+async def test_fetch_feed_calls_enrichment_once_after_collecting_eligible_articles(monkeypatch, category):
+    fetcher = make_fetcher()
+    now = datetime.now(timezone.utc)
+    fetcher._enrich_articles_with_full_text = AsyncMock()
+
+    class FeedEntry(dict):
+        __getattr__ = dict.get
+
+    entries = [
+        FeedEntry(
+            link=f"https://example.com/{category}-{index}",
+            title=f"{category} article {index}",
+            published=(now - timedelta(hours=1)).isoformat(),
+            summary=f"Summary {index}",
+        )
+        for index in range(3)
+    ]
+
+    monkeypatch.setattr(fetcher_module.feedparser, "parse", lambda _: SimpleNamespace(entries=entries))
+
+    class FakeResponse:
+        text = "<rss />"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        async def get(self, url, timeout, follow_redirects):
+            return FakeResponse()
+
+    articles, _ = await fetcher.fetch_feed(
+        FakeClient(),
+        {
+            "url": "https://example.com/feed.xml",
+            "name": "Example Feed",
+            "category": category,
+        },
+    )
+
+    fetcher._enrich_articles_with_full_text.assert_awaited_once()
+    _, enriched_articles = fetcher._enrich_articles_with_full_text.await_args.args
+    assert enriched_articles is articles
+    assert [article.url for article in enriched_articles] == [
+        f"https://example.com/{category}-{index}" for index in range(3)
+    ]
+
+
+@pytest.mark.anyio
 async def test_fetch_feed_does_not_enrich_arxiv_articles(monkeypatch):
     fetcher = make_fetcher()
     now = datetime.now(timezone.utc)
