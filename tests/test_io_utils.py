@@ -34,6 +34,29 @@ def test_atomic_write_json_writes_valid_json(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == payload
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not stable on Windows")
+def test_atomic_write_text_uses_umask_permissions_for_new_file(tmp_path):
+    atomic_path = tmp_path / "atomic.txt"
+    regular_path = tmp_path / "regular.txt"
+
+    atomic_write_text(atomic_path, "atomic")
+    regular_path.write_text("regular", encoding="utf-8")
+
+    assert (atomic_path.stat().st_mode & 0o777) == (regular_path.stat().st_mode & 0o777)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not stable on Windows")
+def test_atomic_write_text_preserves_existing_file_mode(tmp_path):
+    path = tmp_path / "note.txt"
+    path.write_text("old", encoding="utf-8")
+    os.chmod(path, 0o640)
+
+    atomic_write_text(path, "new")
+
+    assert path.read_text(encoding="utf-8") == "new"
+    assert (path.stat().st_mode & 0o777) == 0o640
+
+
 def test_atomic_write_text_uses_fsync_and_atomic_replace(tmp_path, monkeypatch):
     path = tmp_path / "note.txt"
     fsync_calls: list[int] = []
