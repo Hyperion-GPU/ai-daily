@@ -4,6 +4,7 @@ import logging
 from collections import Counter
 from pathlib import Path
 
+from src.io_utils import atomic_write_json, atomic_write_text
 from src.runtime import get_runtime_paths
 from src.utils import now_in_config_timezone
 
@@ -35,8 +36,7 @@ def _write_index(index_path: Path, date_str: str, total: int, by_category: dict[
     )
     existing.sort(key=lambda entry: entry.get('date', ''), reverse=True)
 
-    with open(index_path, 'w', encoding='utf-8') as f:
-        json.dump(existing, f, ensure_ascii=False, indent=2)
+    atomic_write_json(index_path, existing)
     logger.info(f'Digest index saved to {index_path}')
 
 
@@ -68,8 +68,7 @@ def generate_report(articles: list[dict], config: dict, generated_at=None) -> Pa
         'articles': articles_with_ids,
     }
 
-    with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(json_data, f, ensure_ascii=False, indent=2)
+    atomic_write_json(json_path, json_data)
     logger.info(f'JSON report saved to {json_path}')
     _write_index(index_path, date_str, len(articles_sorted), by_category)
 
@@ -97,8 +96,7 @@ def generate_report(articles: list[dict], config: dict, generated_at=None) -> Pa
     lines.append('---')
     lines.append(f"_Generated at {generated_at.strftime('%Y-%m-%d %H:%M %Z')}_")
 
-    with open(md_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(lines))
+    atomic_write_text(md_path, '\n'.join(lines))
     logger.info(f'Markdown report saved to {md_path}')
 
     return md_path

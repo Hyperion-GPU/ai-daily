@@ -9,6 +9,7 @@ from typing import Callable, Literal, TypedDict
 from jinja2 import Template
 
 from src.fetcher import FeedFetcher
+from src.io_utils import atomic_write_json
 from src.llm import LLMClient
 from src.reporter import generate_report
 from src.runtime import get_runtime_paths
@@ -164,12 +165,11 @@ def _load_partial_results(partial_path: Path, logger) -> dict[str, ProcessedArti
 
 
 def _write_partial_results(partial_path: Path, date_str: str, articles: list[ProcessedArticle]) -> None:
-    partial_path.parent.mkdir(exist_ok=True)
     payload = {
         "date": date_str,
         "articles": articles,
     }
-    partial_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(partial_path, payload)
 
 
 def _emit_progress(
@@ -224,274 +224,275 @@ async def run_pipeline(
     fetcher = FeedFetcher(config, logger)
     all_articles = await fetcher.run()
 
-    if not all_articles:
-        logger.warning("No articles fetched. Exiting.")
-        _emit_progress(
-            progress_callback,
-            stage="completed",
-            message="No new articles found",
-            candidates=0,
-            selected=0,
-            processed=0,
-            report_articles=len(existing_articles),
-        )
-        if existing_articles:
-            logger.info("No fresh items found. Preserving the existing daily digest.")
-            return {"result": "no_new_items", "article_count": len(existing_articles)}
-        generate_report([], config, generated_at=generated_at)
-        return {"result": "no_new_items", "article_count": 0}
+    try:
+        if not all_articles:
+            logger.warning("No articles fetched. Exiting.")
+            _emit_progress(
+                progress_callback,
+                stage="completed",
+                message="No new articles found",
+                candidates=0,
+                selected=0,
+                processed=0,
+                report_articles=len(existing_articles),
+            )
+            if existing_articles:
+                logger.info("No fresh items found. Preserving the existing daily digest.")
+                return {"result": "no_new_items", "article_count": len(existing_articles)}
+            generate_report([], config, generated_at=generated_at)
+            return {"result": "no_new_items", "article_count": 0}
 
-    logger.info(f"Fetched {len(all_articles)} candidate articles.")
-    _emit_progress(
-        progress_callback,
-        stage="stage1",
-        message="Filtering candidate articles",
-        current=0,
-        total=max(1, len(all_articles)),
-        candidates=len(all_articles),
-        selected=0,
-        processed=0,
-    )
-
-    if dry_run:
-        logger.info("=== DRY RUN: printing candidates, skipping LLM ===")
-        for index, article in enumerate(all_articles, 1):
-            logger.info(f"  [{index}] [{article.source_category}] {article.title}")
-            logger.info(f"       {article.url}")
-        logger.info(f"Total: {len(all_articles)} articles. Dry run complete.")
-        _emit_progress(
-            progress_callback,
-            stage="completed",
-            message="Dry run complete",
-            candidates=len(all_articles),
-            selected=len(all_articles),
-            processed=0,
-            report_articles=0,
-        )
-        return {"result": "dry_run", "article_count": len(all_articles)}
-
-    llm = LLMClient(config)
-    prompts_dir = get_runtime_paths(config=config).prompts_dir
-    stage1_template = Template((prompts_dir / "stage1_filter.txt").read_text(encoding="utf-8"))
-
-    selected_urls = set()
-    batches = [all_articles[i:i + stage1_batch_size] for i in range(0, len(all_articles), stage1_batch_size)]
-    stage1_semaphore = asyncio.Semaphore(stage1_concurrency)
-    stage1_lock = asyncio.Lock()
-    stage1_completed = 0
-
-    async def process_stage1_batch(batch_idx: int, batch: list) -> list[str]:
-        nonlocal stage1_completed
-
-        batch_target_count = _stage1_target_for_batch(
-            batch_size=len(batch),
-            total_candidates=len(all_articles),
-            max_to_stage2=max_to_stage2,
-            selection_buffer_ratio=stage1_selection_buffer_ratio,
-        )
-        logger.info(
-            f"Stage 1 batch {batch_idx}/{len(batches)}: {len(batch)} articles "
-            f"(target {batch_target_count})"
-        )
-        article_lines = "\n".join(
-            f"- Title: {article.title} | URL: {article.url} | Source: {article.source_name}"
-            for article in batch
-        )
-        prompt = stage1_template.render(target_count=batch_target_count) + "\n\n" + article_lines
-
-        async with stage1_semaphore:
-            urls = await llm.call_stage1(prompt)
-
-        async with stage1_lock:
-            selected_urls.update(urls)
-            stage1_completed += 1
-            selected_so_far = len(selected_urls)
-
-        logger.info(f"  Stage 1 batch {batch_idx} selected {len(urls)} URLs")
+        logger.info(f"Fetched {len(all_articles)} candidate articles.")
         _emit_progress(
             progress_callback,
             stage="stage1",
             message="Filtering candidate articles",
-            current=stage1_completed,
-            total=len(batches),
-            candidates=len(all_articles),
-            selected=selected_so_far,
-            processed=0,
-        )
-        return urls
-
-    stage1_tasks = [
-        asyncio.create_task(process_stage1_batch(batch_idx, batch))
-        for batch_idx, batch in enumerate(batches, 1)
-    ]
-    await asyncio.gather(*stage1_tasks)
-
-    passed = [article for article in all_articles if article.url in selected_urls]
-    filtered = split_by_ratio(
-        passed,
-        non_arxiv_ratio,
-        max_to_stage2,
-        is_primary=lambda article: article.source_category != "arxiv",
-    )
-    filtered_non_arxiv = sum(1 for article in filtered if article.source_category != "arxiv")
-    filtered_arxiv = len(filtered) - filtered_non_arxiv
-    logger.info(
-        f"Stage 1 complete: {len(filtered)} articles passed "
-        f"(from {len(passed)} selected, {len(all_articles)} candidates, "
-        f"{filtered_non_arxiv} non-arxiv + {filtered_arxiv} arxiv)"
-    )
-    _emit_progress(
-        progress_callback,
-        stage="stage2",
-        message="Summarizing selected articles",
-        current=0,
-        total=len(filtered),
-        candidates=len(all_articles),
-        selected=len(filtered),
-        processed=0,
-    )
-
-    if not filtered:
-        logger.warning("Stage 1 filtered out all articles. Generating empty report.")
-        if existing_articles:
-            logger.info("No new reportable items. Preserving the existing daily digest.")
-        else:
-            generate_report([], config, generated_at=generated_at)
-        if partial_path.exists():
-            partial_path.unlink()
-        fetcher.save_state()
-        _emit_progress(
-            progress_callback,
-            stage="completed",
-            message="No articles passed filtering",
+            current=0,
+            total=max(1, len(all_articles)),
             candidates=len(all_articles),
             selected=0,
             processed=0,
-            report_articles=len(existing_articles),
         )
-        return {
-            "result": "no_new_items",
-            "article_count": len(existing_articles),
-        }
 
-    stage2_template = Template((prompts_dir / "stage2_summary.txt").read_text(encoding="utf-8"))
-    semaphore = asyncio.Semaphore(stage2_concurrency)
-    partial_results = _load_partial_results(partial_path, logger)
-    partial_lock = asyncio.Lock()
+        if dry_run:
+            logger.info("=== DRY RUN: printing candidates, skipping LLM ===")
+            for index, article in enumerate(all_articles, 1):
+                logger.info(f"  [{index}] [{article.source_category}] {article.title}")
+                logger.info(f"       {article.url}")
+            logger.info(f"Total: {len(all_articles)} articles. Dry run complete.")
+            _emit_progress(
+                progress_callback,
+                stage="completed",
+                message="Dry run complete",
+                candidates=len(all_articles),
+                selected=len(all_articles),
+                processed=0,
+                report_articles=0,
+            )
+            return {"result": "dry_run", "article_count": len(all_articles)}
 
-    if partial_results:
-        logger.info(f"Recovered {len(partial_results)} cached Stage 2 results from {partial_path.name}")
+        llm = LLMClient(config)
+        prompts_dir = get_runtime_paths(config=config).prompts_dir
+        stage1_template = Template((prompts_dir / "stage1_filter.txt").read_text(encoding="utf-8"))
 
-    async def process_article(article) -> ProcessedArticle | None:
-        cached = partial_results.get(article.url)
-        if cached is not None:
-            logger.info(f"  Stage 2 cached: {article.title[:60]}...")
-            return cached
+        selected_urls = set()
+        batches = [all_articles[i:i + stage1_batch_size] for i in range(0, len(all_articles), stage1_batch_size)]
+        stage1_semaphore = asyncio.Semaphore(stage1_concurrency)
+        stage1_lock = asyncio.Lock()
+        stage1_completed = 0
 
-        try:
-            async with semaphore:
-                prompt = stage2_template.render(
-                    title=article.title,
-                    content=article.content or article.summary,
-                )
-                summary_data = await llm.call_stage2(prompt)
-        except Exception as exc:  # pragma: no cover
-            logger.warning(f"  Stage 2 failed for: {article.title[:60]}... ({exc})")
-            return None
+        async def process_stage1_batch(batch_idx: int, batch: list) -> list[str]:
+            nonlocal stage1_completed
 
-        if not summary_data:
-            logger.warning(f"  Stage 2 failed for: {article.title[:60]}...")
-            return None
+            batch_target_count = _stage1_target_for_batch(
+                batch_size=len(batch),
+                total_candidates=len(all_articles),
+                max_to_stage2=max_to_stage2,
+                selection_buffer_ratio=stage1_selection_buffer_ratio,
+            )
+            logger.info(
+                f"Stage 1 batch {batch_idx}/{len(batches)}: {len(batch)} articles "
+                f"(target {batch_target_count})"
+            )
+            article_lines = "\n".join(
+                f"- Title: {article.title} | URL: {article.url} | Source: {article.source_name}"
+                for article in batch
+            )
+            prompt = stage1_template.render(target_count=batch_target_count) + "\n\n" + article_lines
 
-        result: ProcessedArticle = {
-            "title": article.title,
-            "url": article.url,
-            "published": article.published,
-            "source_name": article.source_name,
-            "source_category": article.source_category,
-            "summary_zh": summary_data.get("summary_zh", ""),
-            "tags": summary_data.get("tags", []),
-            "importance": summary_data.get("importance", 1),
-        }
-        async with partial_lock:
-            partial_results[article.url] = result
-            _write_partial_results(partial_path, date_str, list(partial_results.values()))
+            async with stage1_semaphore:
+                urls = await llm.call_stage1(prompt)
 
-        logger.info(f"  Stage 2 done: {article.title[:60]}...")
-        return result
+            async with stage1_lock:
+                selected_urls.update(urls)
+                stage1_completed += 1
+                selected_so_far = len(selected_urls)
 
-    tasks = [asyncio.create_task(process_article(article)) for article in filtered]
-    results: list[ProcessedArticle] = []
-    completed = 0
-    for task in asyncio.as_completed(tasks):
-        result = await task
-        completed += 1
-        if result is not None:
-            results.append(result)
+            logger.info(f"  Stage 1 batch {batch_idx} selected {len(urls)} URLs")
+            _emit_progress(
+                progress_callback,
+                stage="stage1",
+                message="Filtering candidate articles",
+                current=stage1_completed,
+                total=len(batches),
+                candidates=len(all_articles),
+                selected=selected_so_far,
+                processed=0,
+            )
+            return urls
+
+        stage1_tasks = [
+            asyncio.create_task(process_stage1_batch(batch_idx, batch))
+            for batch_idx, batch in enumerate(batches, 1)
+        ]
+        await asyncio.gather(*stage1_tasks)
+
+        passed = [article for article in all_articles if article.url in selected_urls]
+        filtered = split_by_ratio(
+            passed,
+            non_arxiv_ratio,
+            max_to_stage2,
+            is_primary=lambda article: article.source_category != "arxiv",
+        )
+        filtered_non_arxiv = sum(1 for article in filtered if article.source_category != "arxiv")
+        filtered_arxiv = len(filtered) - filtered_non_arxiv
+        logger.info(
+            f"Stage 1 complete: {len(filtered)} articles passed "
+            f"(from {len(passed)} selected, {len(all_articles)} candidates, "
+            f"{filtered_non_arxiv} non-arxiv + {filtered_arxiv} arxiv)"
+        )
         _emit_progress(
             progress_callback,
             stage="stage2",
             message="Summarizing selected articles",
-            current=completed,
+            current=0,
             total=len(filtered),
+            candidates=len(all_articles),
+            selected=len(filtered),
+            processed=0,
+        )
+
+        if not filtered:
+            logger.warning("Stage 1 filtered out all articles. Generating empty report.")
+            if existing_articles:
+                logger.info("No new reportable items. Preserving the existing daily digest.")
+            else:
+                generate_report([], config, generated_at=generated_at)
+            if partial_path.exists():
+                partial_path.unlink()
+            _emit_progress(
+                progress_callback,
+                stage="completed",
+                message="No articles passed filtering",
+                candidates=len(all_articles),
+                selected=0,
+                processed=0,
+                report_articles=len(existing_articles),
+            )
+            return {
+                "result": "no_new_items",
+                "article_count": len(existing_articles),
+            }
+
+        stage2_template = Template((prompts_dir / "stage2_summary.txt").read_text(encoding="utf-8"))
+        semaphore = asyncio.Semaphore(stage2_concurrency)
+        partial_results = _load_partial_results(partial_path, logger)
+        partial_lock = asyncio.Lock()
+
+        if partial_results:
+            logger.info(f"Recovered {len(partial_results)} cached Stage 2 results from {partial_path.name}")
+
+        async def process_article(article) -> ProcessedArticle | None:
+            cached = partial_results.get(article.url)
+            if cached is not None:
+                logger.info(f"  Stage 2 cached: {article.title[:60]}...")
+                return cached
+
+            try:
+                async with semaphore:
+                    prompt = stage2_template.render(
+                        title=article.title,
+                        content=article.content or article.summary,
+                    )
+                    summary_data = await llm.call_stage2(prompt)
+            except Exception as exc:  # pragma: no cover
+                logger.warning(f"  Stage 2 failed for: {article.title[:60]}... ({exc})")
+                return None
+
+            if not summary_data:
+                logger.warning(f"  Stage 2 failed for: {article.title[:60]}...")
+                return None
+
+            result: ProcessedArticle = {
+                "title": article.title,
+                "url": article.url,
+                "published": article.published,
+                "source_name": article.source_name,
+                "source_category": article.source_category,
+                "summary_zh": summary_data.get("summary_zh", ""),
+                "tags": summary_data.get("tags", []),
+                "importance": summary_data.get("importance", 1),
+            }
+            async with partial_lock:
+                partial_results[article.url] = result
+                _write_partial_results(partial_path, date_str, list(partial_results.values()))
+
+            logger.info(f"  Stage 2 done: {article.title[:60]}...")
+            return result
+
+        tasks = [asyncio.create_task(process_article(article)) for article in filtered]
+        results: list[ProcessedArticle] = []
+        completed = 0
+        for task in asyncio.as_completed(tasks):
+            result = await task
+            completed += 1
+            if result is not None:
+                results.append(result)
+            _emit_progress(
+                progress_callback,
+                stage="stage2",
+                message="Summarizing selected articles",
+                current=completed,
+                total=len(filtered),
+                candidates=len(all_articles),
+                selected=len(filtered),
+                processed=len(results),
+            )
+
+        logger.info(f"Stage 2 complete: {len(results)}/{len(filtered)} articles processed successfully")
+        _emit_progress(
+            progress_callback,
+            stage="finalizing",
+            message="Building today's digest",
             candidates=len(all_articles),
             selected=len(filtered),
             processed=len(results),
         )
 
-    logger.info(f"Stage 2 complete: {len(results)}/{len(filtered)} articles processed successfully")
-    _emit_progress(
-        progress_callback,
-        stage="finalizing",
-        message="Building today's digest",
-        candidates=len(all_articles),
-        selected=len(filtered),
-        processed=len(results),
-    )
+        report_articles, report_changed = _merge_with_existing_daily_report(
+            existing_articles,
+            results,
+            max_output,
+            non_arxiv_ratio,
+        )
 
-    report_articles, report_changed = _merge_with_existing_daily_report(
-        existing_articles,
-        results,
-        max_output,
-        non_arxiv_ratio,
-    )
+        if not report_changed and existing_articles:
+            logger.info("No new visible items for today's digest. Keeping the existing report unchanged.")
+            if partial_path.exists():
+                partial_path.unlink()
+                logger.info(f"Cleared partial checkpoint: {partial_path.name}")
+            logger.info("=== AI Daily Pipeline Complete === (no new items added to today's report)")
+            _emit_progress(
+                progress_callback,
+                stage="completed",
+                message="No new items added to today's digest",
+                candidates=len(all_articles),
+                selected=len(filtered),
+                processed=len(results),
+                report_articles=len(report_articles),
+            )
+            return {"result": "no_new_items", "article_count": len(report_articles)}
 
-    if not report_changed and existing_articles:
-        logger.info("No new visible items for today's digest. Keeping the existing report unchanged.")
+        md_path = generate_report(report_articles, config, generated_at=generated_at)
+        logger.info(f"Report generated: {md_path}")
         if partial_path.exists():
             partial_path.unlink()
             logger.info(f"Cleared partial checkpoint: {partial_path.name}")
-        fetcher.save_state()
-        logger.info("=== AI Daily Pipeline Complete === (no new items added to today's report)")
+
+        logger.info(f"=== AI Daily Pipeline Complete === ({len(report_articles)} articles in report)")
         _emit_progress(
             progress_callback,
             stage="completed",
-            message="No new items added to today's digest",
+            message="Today's digest is ready",
             candidates=len(all_articles),
             selected=len(filtered),
             processed=len(results),
             report_articles=len(report_articles),
         )
-        return {"result": "no_new_items", "article_count": len(report_articles)}
-
-    md_path = generate_report(report_articles, config, generated_at=generated_at)
-    logger.info(f"Report generated: {md_path}")
-    if partial_path.exists():
-        partial_path.unlink()
-        logger.info(f"Cleared partial checkpoint: {partial_path.name}")
-
-    fetcher.save_state()
-    logger.info(f"=== AI Daily Pipeline Complete === ({len(report_articles)} articles in report)")
-    _emit_progress(
-        progress_callback,
-        stage="completed",
-        message="Today's digest is ready",
-        candidates=len(all_articles),
-        selected=len(filtered),
-        processed=len(results),
-        report_articles=len(report_articles),
-    )
-    return {"result": "success", "article_count": len(report_articles)}
+        return {"result": "success", "article_count": len(report_articles)}
+    finally:
+        if not dry_run:
+            fetcher.save_state()
 
 
 def main():

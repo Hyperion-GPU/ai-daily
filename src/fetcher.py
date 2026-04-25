@@ -15,6 +15,7 @@ try:
 except ImportError:  # pragma: no cover
     trafilatura = None
 
+from src.io_utils import atomic_write_json
 from src.utils import clean_html_tags, truncate_text
 from src.runtime import get_runtime_paths
 
@@ -104,8 +105,7 @@ class FeedFetcher:
     def save_state(self):
         try:
             self.seen_urls = self._prune_seen_urls(self.seen_urls)
-            with open(self.state_file, "w", encoding="utf-8") as file:
-                json.dump({"seen_urls": self.seen_urls}, file, ensure_ascii=False, indent=2)
+            atomic_write_json(self.state_file, {"seen_urls": self.seen_urls})
             self.logger.info(f"Saved {len(self.seen_urls)} URLs to state.json.")
         except Exception as exc:
             self.logger.error(f"Failed to save state.json: {exc}")

@@ -19,6 +19,7 @@ def make_fetcher():
     fetcher.seen_urls = {}
     fetcher.fetch_full_text_enabled = True
     fetcher.full_text_max_chars = 2000
+    fetcher.full_text_concurrency = 5
     fetcher._full_text_warning_logged = False
     return fetcher
 
@@ -68,6 +69,18 @@ def test_load_state_migrates_legacy_list(tmp_path):
 
     assert set(fetcher.seen_urls.keys()) == {"https://example.com/a", "https://example.com/b"}
     assert all(value for value in fetcher.seen_urls.values())
+
+
+def test_save_state_writes_seen_urls_payload(tmp_path):
+    fetcher = make_fetcher()
+    fetcher.state_file = tmp_path / "state.json"
+    seen_at = datetime.now(timezone.utc).isoformat()
+    fetcher.seen_urls = {"https://example.com/a": seen_at}
+
+    fetcher.save_state()
+
+    payload = json.loads(fetcher.state_file.read_text(encoding="utf-8"))
+    assert payload == {"seen_urls": {"https://example.com/a": seen_at}}
 
 
 @pytest.mark.anyio
@@ -136,3 +149,107 @@ async def test_fetch_feed_filters_seen_old_and_prefiltered_entries(monkeypatch):
     assert articles[0].content == "Full content"
     assert new_urls == {"https://example.com/fresh"}
     fetcher._enrich_articles_with_full_text.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_fetch_feed_enriches_each_eligible_article_once(monkeypatch):
+    fetcher = make_fetcher()
+    now = datetime.now(timezone.utc)
+    calls: list[str] = []
+
+    class FeedEntry(dict):
+        __getattr__ = dict.get
+
+    entries = [
+        FeedEntry(
+            link=f"https://example.com/article-{index}",
+            title=f"Article {index}",
+            published=(now - timedelta(hours=1)).isoformat(),
+            summary=f"Summary {index}",
+        )
+        for index in range(3)
+    ]
+
+    monkeypatch.setattr(fetcher_module.feedparser, "parse", lambda _: SimpleNamespace(entries=entries))
+
+    async def fake_fetch_full_text(client, url):
+        calls.append(url)
+        return f"Full text for {url}"
+
+    fetcher.fetch_full_text = fake_fetch_full_text
+
+    class FakeResponse:
+        text = "<rss />"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        async def get(self, url, timeout, follow_redirects):
+            return FakeResponse()
+
+    articles, new_urls = await fetcher.fetch_feed(
+        FakeClient(),
+        {
+            "url": "https://example.com/feed.xml",
+            "name": "Example Feed",
+            "category": "news",
+        },
+    )
+
+    assert [article.url for article in articles] == calls
+    assert calls == [f"https://example.com/article-{index}" for index in range(3)]
+    assert new_urls == set(calls)
+    assert [article.content for article in articles] == [
+        f"Full text for https://example.com/article-{index}" for index in range(3)
+    ]
+
+
+@pytest.mark.anyio
+async def test_fetch_feed_does_not_enrich_arxiv_articles(monkeypatch):
+    fetcher = make_fetcher()
+    now = datetime.now(timezone.utc)
+    calls: list[str] = []
+
+    class FeedEntry(dict):
+        __getattr__ = dict.get
+
+    entries = [
+        FeedEntry(
+            link="https://example.com/arxiv",
+            title="Arxiv paper",
+            published=(now - timedelta(hours=1)).isoformat(),
+            summary="Paper summary",
+        )
+    ]
+
+    monkeypatch.setattr(fetcher_module.feedparser, "parse", lambda _: SimpleNamespace(entries=entries))
+
+    async def fake_fetch_full_text(client, url):
+        calls.append(url)
+        return "Full text"
+
+    fetcher.fetch_full_text = fake_fetch_full_text
+
+    class FakeResponse:
+        text = "<rss />"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        async def get(self, url, timeout, follow_redirects):
+            return FakeResponse()
+
+    articles, new_urls = await fetcher.fetch_feed(
+        FakeClient(),
+        {
+            "url": "https://example.com/feed.xml",
+            "name": "Arxiv Feed",
+            "category": "arxiv",
+        },
+    )
+
+    assert [article.url for article in articles] == ["https://example.com/arxiv"]
+    assert new_urls == {"https://example.com/arxiv"}
+    assert calls == []

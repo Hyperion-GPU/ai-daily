@@ -150,7 +150,7 @@ async def test_run_pipeline_preserves_existing_digest_when_no_new_articles(tmp_p
         encoding="utf-8",
     )
 
-    saved_state = {"called": False}
+    saved_state = {"count": 0}
     generated_reports: list[list[dict]] = []
 
     class FakeFetcher:
@@ -162,7 +162,7 @@ async def test_run_pipeline_preserves_existing_digest_when_no_new_articles(tmp_p
             return []
 
         def save_state(self):
-            saved_state["called"] = True
+            saved_state["count"] += 1
 
     monkeypatch.setattr(main, "setup_logger", lambda config: logger)
     monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
@@ -178,8 +178,43 @@ async def test_run_pipeline_preserves_existing_digest_when_no_new_articles(tmp_p
 
     assert result == {"result": "no_new_items", "article_count": 1}
     assert generated_reports == []
-    assert saved_state["called"] is False
+    assert saved_state["count"] == 1
     assert progress_updates[-1]["report_articles"] == 1
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_writes_empty_report_and_saves_state_when_no_articles(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    logger = logging.getLogger("test-main-pipeline-no-articles")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    generated_reports: list[list[dict]] = []
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self):
+            return []
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(
+        main,
+        "generate_report",
+        lambda articles, config, generated_at=None: generated_reports.append(list(articles)) or "report.md",
+    )
+
+    result = await main.run_pipeline(config)
+
+    assert result == {"result": "no_new_items", "article_count": 0}
+    assert generated_reports == [[]]
+    assert saved_state["count"] == 1
 
 
 @pytest.mark.anyio
@@ -187,7 +222,7 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
     config = _test_config(tmp_path)
     logger = logging.getLogger("test-main-pipeline-success")
     generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
-    saved_state = {"called": False}
+    saved_state = {"count": 0}
     generated_reports: list[list[dict]] = []
 
     articles = [
@@ -220,7 +255,7 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
             return articles
 
         def save_state(self):
-            saved_state["called"] = True
+            saved_state["count"] += 1
 
     class FakeLLMClient:
         def __init__(self, config):
@@ -250,7 +285,7 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
     result = await main.run_pipeline(config, progress_callback=progress_updates.append)
 
     assert result == {"result": "success", "article_count": 2}
-    assert saved_state["called"] is True
+    assert saved_state["count"] == 1
     assert len(generated_reports) == 1
     assert [article["url"] for article in generated_reports[0]] == [
         "https://example.com/alpha",
@@ -259,6 +294,143 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
     assert progress_updates[-1]["stage"] == "completed"
     assert progress_updates[-1]["report_articles"] == 2
     assert not (tmp_path / "output" / "2026-03-16.partial.json").exists()
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_saves_fetcher_state_when_stage1_filters_everything(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    logger = logging.getLogger("test-main-pipeline-filtered-empty")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    generated_reports: list[list[dict]] = []
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        )
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self):
+            return articles
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    class FakeLLMClient:
+        def __init__(self, config):
+            self.config = config
+
+        async def call_stage1(self, prompt):
+            return []
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", FakeLLMClient)
+    monkeypatch.setattr(
+        main,
+        "generate_report",
+        lambda articles, config, generated_at=None: generated_reports.append(list(articles)) or "report.md",
+    )
+
+    result = await main.run_pipeline(config)
+
+    assert result == {"result": "no_new_items", "article_count": 0}
+    assert generated_reports == [[]]
+    assert saved_state["count"] == 1
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_saves_fetcher_state_when_later_stage_fails(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    logger = logging.getLogger("test-main-pipeline-failure")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        )
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self):
+            return articles
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    class FailingLLMClient:
+        def __init__(self, config):
+            raise RuntimeError("stage setup failed")
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", FailingLLMClient)
+
+    with pytest.raises(RuntimeError, match="stage setup failed"):
+        await main.run_pipeline(config)
+
+    assert saved_state["count"] == 1
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_dry_run_does_not_save_fetcher_state(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    logger = logging.getLogger("test-main-pipeline-dry-run")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        )
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self):
+            return articles
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+
+    result = await main.run_pipeline(config, dry_run=True)
+
+    assert result == {"result": "dry_run", "article_count": 1}
+    assert saved_state["count"] == 0
 
 
 def test_stage1_target_for_batch_uses_proportional_buffer():
