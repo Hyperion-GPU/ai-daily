@@ -110,6 +110,11 @@ class FeedFetcher:
         except Exception as exc:
             self.logger.error(f"Failed to save state.json: {exc}")
 
+    def mark_seen(self, urls, seen_at: str | None = None) -> None:
+        if seen_at is None:
+            seen_at = datetime.now(timezone.utc).isoformat()
+        self.seen_urls.update({url: seen_at for url in urls if url})
+
     def is_within_time_window(self, date_str: str) -> bool:
         if not date_str:
             return True
@@ -249,7 +254,7 @@ class FeedFetcher:
         self.logger.info(f"Extracted {len(articles)} fresh items from {name}.")
         return articles, new_urls
 
-    async def run(self) -> list[RawArticle]:
+    async def run(self, mark_seen: bool = True) -> list[RawArticle]:
         feeds = [feed for feed in self.config.get("feeds", []) if feed.get("enabled", True)]
         all_articles: list[RawArticle] = []
         seen_at = datetime.now(timezone.utc).isoformat()
@@ -271,7 +276,8 @@ class FeedFetcher:
 
             articles, new_urls = result
             all_articles.extend(articles)
-            self.seen_urls.update({url: seen_at for url in new_urls})
+            if mark_seen:
+                self.mark_seen(new_urls, seen_at)
 
         self.logger.info(f"Fetch complete. Got {len(all_articles)} total candidates to process.")
         return all_articles

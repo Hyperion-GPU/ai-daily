@@ -1,0 +1,52 @@
+name: backend-web-ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  backend-core:
+    name: Backend core tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+      - name: Run backend core tests
+        run: |
+          python -m pytest \
+            tests/test_fetcher.py \
+            tests/test_llm.py \
+            tests/test_main.py \
+            tests/test_reporter.py \
+            tests/test_runtime_settings.py \
+            tests/test_api.py \
+            tests/test_github_fetcher.py \
+            tests/test_io_utils.py \
+            -q
+
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build

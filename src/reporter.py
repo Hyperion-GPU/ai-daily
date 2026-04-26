@@ -1,8 +1,10 @@
 ﻿import hashlib
+from html import escape as html_escape
 import json
 import logging
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 from src.io_utils import atomic_write_json, atomic_write_text
 from src.runtime import get_runtime_paths
@@ -38,6 +40,24 @@ def _write_index(index_path: Path, date_str: str, total: int, by_category: dict[
 
     atomic_write_json(index_path, existing)
     logger.info(f'Digest index saved to {index_path}')
+
+
+def _markdown_text(value) -> str:
+    text = str(value).replace('\r', ' ').replace('\n', ' ').strip()
+    text = html_escape(text, quote=False)
+    return text.replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]').replace('|', '\\|')
+
+
+def _safe_markdown_url(value) -> str:
+    url = str(value).strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        return ''
+    return url.replace(' ', '%20').replace('(', '%28').replace(')', '%29')
+
+
+def _markdown_code_text(value) -> str:
+    return _markdown_text(value).replace('`', "'")
 
 
 def generate_report(articles: list[dict], config: dict, generated_at=None) -> Path:
@@ -103,15 +123,18 @@ def generate_report(articles: list[dict], config: dict, generated_at=None) -> Pa
 
 
 def _append_article_md(lines: list[str], article: dict):
-    title = article.get('title', 'Untitled')
-    url = article.get('url', '')
-    source = article.get('source_name', 'Unknown')
+    title = _markdown_text(article.get('title', 'Untitled'))
+    url = _safe_markdown_url(article.get('url', ''))
+    source = _markdown_text(article.get('source_name', 'Unknown'))
     tags = article.get('tags', [])
-    tags_str = ' | '.join(f'`{tag}`' for tag in tags) if tags else 'N/A'
+    tags_str = ' | '.join(f'`{_markdown_code_text(tag)}`' for tag in tags) if tags else 'N/A'
     importance = article.get('importance', 0)
-    summary = article.get('summary_zh', '')
+    summary = _markdown_text(article.get('summary_zh', ''))
 
-    lines.append(f'### [{title}]({url})')
+    if url:
+        lines.append(f'### [{title}]({url})')
+    else:
+        lines.append(f'### {title}')
     lines.append(f'> Source: {source} | Tags: {tags_str} | Importance: {importance}/5')
     lines.append(f'> {summary}')
     lines.append('')

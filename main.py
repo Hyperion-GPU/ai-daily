@@ -222,7 +222,13 @@ async def run_pipeline(
     existing_articles = _load_existing_digest_articles(config, date_str, logger)
 
     fetcher = FeedFetcher(config, logger)
-    all_articles = await fetcher.run()
+    all_articles = await fetcher.run(mark_seen=False)
+
+    def commit_fetch_state(urls) -> None:
+        if dry_run:
+            return
+        fetcher.mark_seen(urls)
+        fetcher.save_state()
 
     try:
         if not all_articles:
@@ -238,8 +244,10 @@ async def run_pipeline(
             )
             if existing_articles:
                 logger.info("No fresh items found. Preserving the existing daily digest.")
+                commit_fetch_state([])
                 return {"result": "no_new_items", "article_count": len(existing_articles)}
             generate_report([], config, generated_at=generated_at)
+            commit_fetch_state([])
             return {"result": "no_new_items", "article_count": 0}
 
         logger.info(f"Fetched {len(all_articles)} candidate articles.")
@@ -276,6 +284,7 @@ async def run_pipeline(
         stage1_template = Template((prompts_dir / "stage1_filter.txt").read_text(encoding="utf-8"))
 
         selected_urls = set()
+        stage1_handled_urls = set()
         batches = [all_articles[i:i + stage1_batch_size] for i in range(0, len(all_articles), stage1_batch_size)]
         stage1_semaphore = asyncio.Semaphore(stage1_concurrency)
         stage1_lock = asyncio.Lock()
@@ -300,11 +309,20 @@ async def run_pipeline(
             )
             prompt = stage1_template.render(target_count=batch_target_count) + "\n\n" + article_lines
 
-            async with stage1_semaphore:
-                urls = await llm.call_stage1(prompt)
+            try:
+                async with stage1_semaphore:
+                    urls = await llm.call_stage1(prompt)
+            except Exception as exc:
+                logger.warning(f"  Stage 1 batch {batch_idx} failed: {exc}")
+                urls = []
+                batch_succeeded = False
+            else:
+                batch_succeeded = True
 
             async with stage1_lock:
                 selected_urls.update(urls)
+                if batch_succeeded:
+                    stage1_handled_urls.update(article.url for article in batch)
                 stage1_completed += 1
                 selected_so_far = len(selected_urls)
 
@@ -334,6 +352,7 @@ async def run_pipeline(
             max_to_stage2,
             is_primary=lambda article: article.source_category != "arxiv",
         )
+        filtered_urls = {article.url for article in filtered}
         filtered_non_arxiv = sum(1 for article in filtered if article.source_category != "arxiv")
         filtered_arxiv = len(filtered) - filtered_non_arxiv
         logger.info(
@@ -360,6 +379,7 @@ async def run_pipeline(
                 generate_report([], config, generated_at=generated_at)
             if partial_path.exists():
                 partial_path.unlink()
+            commit_fetch_state(stage1_handled_urls)
             _emit_progress(
                 progress_callback,
                 stage="completed",
@@ -439,6 +459,9 @@ async def run_pipeline(
                 processed=len(results),
             )
 
+        processed_urls = {article["url"] for article in results}
+        safely_handled_urls = (stage1_handled_urls - filtered_urls) | processed_urls
+
         logger.info(f"Stage 2 complete: {len(results)}/{len(filtered)} articles processed successfully")
         _emit_progress(
             progress_callback,
@@ -461,6 +484,7 @@ async def run_pipeline(
             if partial_path.exists():
                 partial_path.unlink()
                 logger.info(f"Cleared partial checkpoint: {partial_path.name}")
+            commit_fetch_state(safely_handled_urls)
             logger.info("=== AI Daily Pipeline Complete === (no new items added to today's report)")
             _emit_progress(
                 progress_callback,
@@ -478,6 +502,7 @@ async def run_pipeline(
         if partial_path.exists():
             partial_path.unlink()
             logger.info(f"Cleared partial checkpoint: {partial_path.name}")
+        commit_fetch_state(safely_handled_urls)
 
         logger.info(f"=== AI Daily Pipeline Complete === ({len(report_articles)} articles in report)")
         _emit_progress(
@@ -490,9 +515,10 @@ async def run_pipeline(
             report_articles=len(report_articles),
         )
         return {"result": "success", "article_count": len(report_articles)}
-    finally:
-        if not dry_run:
-            fetcher.save_state()
+
+    except Exception:
+        logger.exception("Pipeline failed; seen state not committed")
+        raise
 
 
 def main():

@@ -17,6 +17,10 @@ const props = defineProps<{
 
 const { copy, locale } = useLocale();
 
+const trend = computed(() => props.project.trend ?? null);
+const starsToday = computed(() => props.project.stars_today ?? null);
+const starsWeekly = computed(() => props.project.stars_weekly ?? null);
+
 const timeAgo = computed(() => {
   if (!props.project.pushed_at) {
     return null;
@@ -36,7 +40,7 @@ const timeAgo = computed(() => {
       <div class="project-card__heading">
         <div class="project-card__meta-row">
           <span class="soft-pill">{{ project.category }}</span>
-          <TrendBadge :trend="project.trend" />
+          <TrendBadge :trend="trend" />
         </div>
         <a :href="project.html_url" target="_blank" rel="noopener noreferrer" class="project-card__title">
           {{ project.full_name }}
@@ -58,8 +62,8 @@ const timeAgo = computed(() => {
       :stars="project.stars"
       :forks="project.forks"
       :issues="project.open_issues"
-      :stars-today="project.stars_today"
-      :stars-weekly="project.stars_weekly"
+      :stars-today="starsToday"
+      :stars-weekly="starsWeekly"
     />
 
     <div class="project-card__footer">
