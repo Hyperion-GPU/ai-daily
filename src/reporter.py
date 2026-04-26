@@ -53,7 +53,7 @@ def _safe_markdown_url(value) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
         return ''
-    return url.replace(' ', '%20').replace(')', '%29')
+    return url.replace(' ', '%20').replace('(', '%28').replace(')', '%29')
 
 
 def _markdown_code_text(value) -> str:

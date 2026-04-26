@@ -116,6 +116,37 @@ def test_generate_report_escapes_markdown_and_rejects_unsafe_links(tmp_path):
     assert "Summary \\[x\\] line two" in markdown
 
 
+def test_generate_report_encodes_parentheses_in_markdown_links(tmp_path):
+    config = {
+        "timezone": "UTC",
+        "outputs": {
+            "output_dir": str(tmp_path),
+            "report_filename": "{date}.md",
+        },
+    }
+    articles = [
+        {
+            "title": "Parenthesized URL",
+            "url": "https://en.wikipedia.org/wiki/Function_(mathematics)",
+            "published": "2026-03-14T09:00:00+00:00",
+            "source_name": "Example",
+            "source_category": "news",
+            "summary_zh": "Summary",
+            "tags": [],
+            "importance": 5,
+        }
+    ]
+
+    md_path = reporter.generate_report(articles, config, generated_at=GENERATED_AT)
+    markdown = md_path.read_text(encoding="utf-8")
+
+    assert (
+        "### [Parenthesized URL](https://en.wikipedia.org/wiki/Function_%28mathematics%29)"
+        in markdown
+    )
+    assert "Function_(mathematics%29)" not in markdown
+
+
 def test_generate_report_updates_existing_index_entry(tmp_path):
     config = {
         "timezone": "UTC",
