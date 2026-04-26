@@ -97,6 +97,11 @@ const handleFetchSettled = async (finalStatus: GitHubFetchStatus) => {
     return;
   }
 
+  if (finalStatus.last_outcome === 'degraded') {
+    message.warning(finalStatus.progress?.message || 'GitHub fetch degraded; existing snapshot kept.');
+    return;
+  }
+
   if (finalStatus.last_outcome === 'error') {
     message.error(finalStatus.error || copy.value.github.fetchError);
   }
