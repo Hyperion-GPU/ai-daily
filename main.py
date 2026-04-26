@@ -352,6 +352,7 @@ async def run_pipeline(
             max_to_stage2,
             is_primary=lambda article: article.source_category != "arxiv",
         )
+        filtered_urls = {article.url for article in filtered}
         filtered_non_arxiv = sum(1 for article in filtered if article.source_category != "arxiv")
         filtered_arxiv = len(filtered) - filtered_non_arxiv
         logger.info(
@@ -459,7 +460,7 @@ async def run_pipeline(
             )
 
         processed_urls = {article["url"] for article in results}
-        safely_handled_urls = (stage1_handled_urls - selected_urls) | processed_urls
+        safely_handled_urls = (stage1_handled_urls - filtered_urls) | processed_urls
 
         logger.info(f"Stage 2 complete: {len(results)}/{len(filtered)} articles processed successfully")
         _emit_progress(

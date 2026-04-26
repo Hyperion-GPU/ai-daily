@@ -565,6 +565,169 @@ async def test_run_pipeline_marks_only_successful_stage2_articles_seen(tmp_path,
 
 
 @pytest.mark.anyio
+async def test_run_pipeline_marks_stage1_selected_but_trimmed_articles_seen(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    config["pipeline"]["max_articles_to_stage2"] = 1
+    config["pipeline"]["non_arxiv_ratio"] = 1.0
+    logger = logging.getLogger("test-main-pipeline-stage1-trimmed-selected")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    marked_urls: list[str] = []
+    generated_reports: list[list[dict]] = []
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        ),
+        RawArticle(
+            title="Beta",
+            url="https://example.com/beta",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Beta summary",
+            content="Beta content",
+        ),
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self, mark_seen=True):
+            assert mark_seen is False
+            return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    class SelectingLLMClient:
+        def __init__(self, config):
+            self.config = config
+
+        async def call_stage1(self, prompt):
+            return [article.url for article in articles]
+
+        async def call_stage2(self, prompt):
+            return {"summary_zh": "Alpha zh", "tags": ["AI"], "importance": 4}
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", SelectingLLMClient)
+    monkeypatch.setattr(
+        main,
+        "generate_report",
+        lambda articles, config, generated_at=None: generated_reports.append(list(articles)) or "report.md",
+    )
+
+    result = await main.run_pipeline(config)
+
+    assert result == {"result": "success", "article_count": 1}
+    assert saved_state["count"] == 1
+    assert set(marked_urls) == {"https://example.com/alpha", "https://example.com/beta"}
+    assert [article["url"] for article in generated_reports[0]] == ["https://example.com/alpha"]
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_keeps_stage2_failures_unseen_while_marking_trimmed_urls_seen(
+    tmp_path,
+    monkeypatch,
+):
+    config = _test_config(tmp_path)
+    config["pipeline"]["max_articles_to_stage2"] = 2
+    config["pipeline"]["non_arxiv_ratio"] = 1.0
+    logger = logging.getLogger("test-main-pipeline-stage2-failure-with-trim")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    marked_urls: list[str] = []
+    generated_reports: list[list[dict]] = []
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        ),
+        RawArticle(
+            title="Beta",
+            url="https://example.com/beta",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Beta summary",
+            content="Beta content",
+        ),
+        RawArticle(
+            title="Gamma",
+            url="https://example.com/gamma",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Gamma summary",
+            content="Gamma content",
+        ),
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self, mark_seen=True):
+            assert mark_seen is False
+            return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    class Stage2PartiallyFailingClient:
+        def __init__(self, config):
+            self.config = config
+
+        async def call_stage1(self, prompt):
+            return [article.url for article in articles]
+
+        async def call_stage2(self, prompt):
+            if "Alpha" in prompt:
+                return None
+            return {"summary_zh": "Beta zh", "tags": ["AI"], "importance": 4}
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", Stage2PartiallyFailingClient)
+    monkeypatch.setattr(
+        main,
+        "generate_report",
+        lambda articles, config, generated_at=None: generated_reports.append(list(articles)) or "report.md",
+    )
+
+    result = await main.run_pipeline(config)
+
+    assert result == {"result": "success", "article_count": 1}
+    assert saved_state["count"] == 1
+    assert set(marked_urls) == {"https://example.com/beta", "https://example.com/gamma"}
+    assert "https://example.com/alpha" not in marked_urls
+    assert [article["url"] for article in generated_reports[0]] == ["https://example.com/beta"]
+
+
+@pytest.mark.anyio
 async def test_run_pipeline_dry_run_does_not_save_fetcher_state(tmp_path, monkeypatch):
     config = _test_config(tmp_path)
     logger = logging.getLogger("test-main-pipeline-dry-run")
