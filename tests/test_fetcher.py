@@ -84,6 +84,35 @@ def test_save_state_writes_seen_urls_payload(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_run_can_delay_marking_new_urls_seen():
+    fetcher = make_fetcher()
+    fetcher.config = {"feeds": [{"name": "Example", "enabled": True}]}
+    article = fetcher_module.RawArticle(
+        title="Alpha",
+        url="https://example.com/alpha",
+        published=datetime.now(timezone.utc).isoformat(),
+        source_name="Example",
+        source_category="news",
+        summary="summary",
+        content="content",
+    )
+
+    async def fake_fetch_feed(client, feed):
+        return [article], {article.url}
+
+    fetcher.fetch_feed = fake_fetch_feed
+
+    articles = await fetcher.run(mark_seen=False)
+
+    assert articles == [article]
+    assert fetcher.seen_urls == {}
+
+    await fetcher.run()
+
+    assert set(fetcher.seen_urls) == {article.url}
+
+
+@pytest.mark.anyio
 async def test_fetch_feed_filters_seen_old_and_prefiltered_entries(monkeypatch):
     fetcher = make_fetcher()
     now = datetime.now(timezone.utc)

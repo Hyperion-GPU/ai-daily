@@ -158,8 +158,11 @@ async def test_run_pipeline_preserves_existing_digest_when_no_new_articles(tmp_p
             self.config = config
             self.logger = logger
 
-        async def run(self):
+        async def run(self, mark_seen=True):
             return []
+
+        def mark_seen(self, urls):
+            return None
 
         def save_state(self):
             saved_state["count"] += 1
@@ -195,8 +198,11 @@ async def test_run_pipeline_writes_empty_report_and_saves_state_when_no_articles
             self.config = config
             self.logger = logger
 
-        async def run(self):
+        async def run(self, mark_seen=True):
             return []
+
+        def mark_seen(self, urls):
+            return None
 
         def save_state(self):
             saved_state["count"] += 1
@@ -223,6 +229,7 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
     logger = logging.getLogger("test-main-pipeline-success")
     generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
     saved_state = {"count": 0}
+    marked_urls: list[str] = []
     generated_reports: list[list[dict]] = []
 
     articles = [
@@ -251,8 +258,12 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
             self.config = config
             self.logger = logger
 
-        async def run(self):
+        async def run(self, mark_seen=True):
+            assert mark_seen is False
             return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
 
         def save_state(self):
             saved_state["count"] += 1
@@ -286,6 +297,7 @@ async def test_run_pipeline_processes_and_reports_selected_articles(tmp_path, mo
 
     assert result == {"result": "success", "article_count": 2}
     assert saved_state["count"] == 1
+    assert set(marked_urls) == {"https://example.com/alpha", "https://example.com/beta"}
     assert len(generated_reports) == 1
     assert [article["url"] for article in generated_reports[0]] == [
         "https://example.com/alpha",
@@ -302,6 +314,7 @@ async def test_run_pipeline_saves_fetcher_state_when_stage1_filters_everything(t
     logger = logging.getLogger("test-main-pipeline-filtered-empty")
     generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
     saved_state = {"count": 0}
+    marked_urls: list[str] = []
     generated_reports: list[list[dict]] = []
     articles = [
         RawArticle(
@@ -320,8 +333,11 @@ async def test_run_pipeline_saves_fetcher_state_when_stage1_filters_everything(t
             self.config = config
             self.logger = logger
 
-        async def run(self):
+        async def run(self, mark_seen=True):
             return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
 
         def save_state(self):
             saved_state["count"] += 1
@@ -348,14 +364,16 @@ async def test_run_pipeline_saves_fetcher_state_when_stage1_filters_everything(t
     assert result == {"result": "no_new_items", "article_count": 0}
     assert generated_reports == [[]]
     assert saved_state["count"] == 1
+    assert marked_urls == ["https://example.com/alpha"]
 
 
 @pytest.mark.anyio
-async def test_run_pipeline_saves_fetcher_state_when_later_stage_fails(tmp_path, monkeypatch):
+async def test_run_pipeline_does_not_save_fetcher_state_when_later_stage_fails(tmp_path, monkeypatch):
     config = _test_config(tmp_path)
     logger = logging.getLogger("test-main-pipeline-failure")
     generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
     saved_state = {"count": 0}
+    marked_urls: list[str] = []
     articles = [
         RawArticle(
             title="Alpha",
@@ -373,8 +391,11 @@ async def test_run_pipeline_saves_fetcher_state_when_later_stage_fails(tmp_path,
             self.config = config
             self.logger = logger
 
-        async def run(self):
+        async def run(self, mark_seen=True):
             return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
 
         def save_state(self):
             saved_state["count"] += 1
@@ -391,7 +412,156 @@ async def test_run_pipeline_saves_fetcher_state_when_later_stage_fails(tmp_path,
     with pytest.raises(RuntimeError, match="stage setup failed"):
         await main.run_pipeline(config)
 
+    assert saved_state["count"] == 0
+    assert marked_urls == []
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_continues_when_one_stage1_batch_fails(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    config["pipeline"]["stage1_batch_size"] = 1
+    logger = logging.getLogger("test-main-pipeline-stage1-batch-failure")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    marked_urls: list[str] = []
+    generated_reports: list[list[dict]] = []
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        ),
+        RawArticle(
+            title="Beta",
+            url="https://example.com/beta",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Beta summary",
+            content="Beta content",
+        ),
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self, mark_seen=True):
+            return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    class PartiallyFailingLLMClient:
+        def __init__(self, config):
+            self.config = config
+
+        async def call_stage1(self, prompt):
+            if "Alpha" in prompt:
+                raise RuntimeError("stage1 batch failed")
+            return ["https://example.com/beta"]
+
+        async def call_stage2(self, prompt):
+            return {"summary_zh": "Beta zh", "tags": ["AI"], "importance": 4}
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", PartiallyFailingLLMClient)
+    monkeypatch.setattr(
+        main,
+        "generate_report",
+        lambda articles, config, generated_at=None: generated_reports.append(list(articles)) or "report.md",
+    )
+
+    result = await main.run_pipeline(config)
+
+    assert result == {"result": "success", "article_count": 1}
     assert saved_state["count"] == 1
+    assert marked_urls == ["https://example.com/beta"]
+    assert [article["url"] for article in generated_reports[0]] == ["https://example.com/beta"]
+
+
+@pytest.mark.anyio
+async def test_run_pipeline_marks_only_successful_stage2_articles_seen(tmp_path, monkeypatch):
+    config = _test_config(tmp_path)
+    logger = logging.getLogger("test-main-pipeline-stage2-partial-failure")
+    generated_at = datetime(2026, 3, 16, 8, 0, tzinfo=timezone.utc)
+    saved_state = {"count": 0}
+    marked_urls: list[str] = []
+    generated_reports: list[list[dict]] = []
+    articles = [
+        RawArticle(
+            title="Alpha",
+            url="https://example.com/alpha",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Alpha summary",
+            content="Alpha content",
+        ),
+        RawArticle(
+            title="Beta",
+            url="https://example.com/beta",
+            published=generated_at.isoformat(),
+            source_name="Example",
+            source_category="news",
+            summary="Beta summary",
+            content="Beta content",
+        ),
+    ]
+
+    class FakeFetcher:
+        def __init__(self, config, logger):
+            self.config = config
+            self.logger = logger
+
+        async def run(self, mark_seen=True):
+            assert mark_seen is False
+            return articles
+
+        def mark_seen(self, urls):
+            marked_urls.extend(urls)
+
+        def save_state(self):
+            saved_state["count"] += 1
+
+    class PartiallyFailingStage2Client:
+        def __init__(self, config):
+            self.config = config
+
+        async def call_stage1(self, prompt):
+            return [article.url for article in articles]
+
+        async def call_stage2(self, prompt):
+            if "Alpha" in prompt:
+                return None
+            return {"summary_zh": "Beta zh", "tags": ["AI"], "importance": 4}
+
+    monkeypatch.setattr(main, "setup_logger", lambda config: logger)
+    monkeypatch.setattr(main, "now_in_config_timezone", lambda config: generated_at)
+    monkeypatch.setattr(main, "FeedFetcher", FakeFetcher)
+    monkeypatch.setattr(main, "LLMClient", PartiallyFailingStage2Client)
+    monkeypatch.setattr(
+        main,
+        "generate_report",
+        lambda articles, config, generated_at=None: generated_reports.append(list(articles)) or "report.md",
+    )
+
+    result = await main.run_pipeline(config)
+
+    assert result == {"result": "success", "article_count": 1}
+    assert saved_state["count"] == 1
+    assert marked_urls == ["https://example.com/beta"]
+    assert [article["url"] for article in generated_reports[0]] == ["https://example.com/beta"]
 
 
 @pytest.mark.anyio
@@ -417,8 +587,11 @@ async def test_run_pipeline_dry_run_does_not_save_fetcher_state(tmp_path, monkey
             self.config = config
             self.logger = logger
 
-        async def run(self):
+        async def run(self, mark_seen=True):
             return articles
+
+        def mark_seen(self, urls):
+            return None
 
         def save_state(self):
             saved_state["count"] += 1
